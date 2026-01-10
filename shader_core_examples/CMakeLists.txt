@@ -7,6 +7,7 @@ find_package(OpenGL REQUIRED)
 
 add_executable(shader_core_examples
         color_check.cpp
+#        simple_ray_tracer.cpp
 )
 
 target_link_libraries(shader_core_examples

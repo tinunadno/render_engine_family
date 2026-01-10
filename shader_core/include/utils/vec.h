@@ -92,6 +92,20 @@ binaryOp(
 
 template<typename NumericT, std::size_t N, typename Container, typename Op>
 constexpr Vec<NumericT, N, Container>
+unaryOp(
+    const Vec<NumericT, N, Container>& a
+    , Op op)
+{
+    Vec<NumericT, N, Container> ret;
+    for (std::size_t i = 0; i < N; i++)
+    {
+        ret[i] = op(a[i]);
+    }
+    return ret;
+}
+
+template<typename NumericT, std::size_t N, typename Container, typename Op>
+constexpr Vec<NumericT, N, Container>
 scalarBinaryOp(
     const Vec<NumericT, N, Container>& a
     , NumericT scalar
@@ -127,10 +141,43 @@ operator*(const Vec<NumericT, N, Container>& a
 
 template<typename NumericT, std::size_t N, typename Container>
 constexpr Vec<NumericT, N, Container>
+operator/(const Vec<NumericT, N, Container>& a
+    , NumericT scalar)
+{
+    return scalarBinaryOp(a, scalar, [](const auto aa, const auto bb) { return aa / bb; });
+}
+
+template<typename NumericT, std::size_t N, typename Container>
+constexpr Vec<NumericT, N, Container>
 operator+(const Vec<NumericT, N, Container>& a
         , const Vec<NumericT, N, Container>& b)
 {
     return binaryOp(a, b, [](const auto aa, const auto bb) { return aa + bb; });
+}
+
+template<typename NumericT, std::size_t N, typename Container>
+constexpr Vec<NumericT, N, Container>
+operator+(const Vec<NumericT, N, Container>& a
+            , NumericT scalar)
+{
+    return scalarBinaryOp(a, scalar, [](const auto aa, const auto bb) { return aa + bb; });
+}
+
+template<typename NumericT, std::size_t N, typename Container>
+constexpr Vec<NumericT, N, Container>
+operator-(const Vec<NumericT, N, Container>& a
+        , const Vec<NumericT, N, Container>& b)
+{
+    return binaryOp(a, b, [](const auto aa, const auto bb) { return aa - bb; });
+}
+
+template<typename NumericT, std::size_t N, typename Container>
+constexpr Vec<NumericT, N, Container>
+clamp(const Vec<NumericT, N, Container>& a
+        , NumericT min
+        , NumericT max)
+{
+    return unaryOp(a, [&min, &max](const auto val) { return std::max(min, std::min(max, val)); });
 }
 
 template<typename NumericT, std::size_t N, typename Container>
@@ -202,6 +249,32 @@ Vec<NumericT, N, Container> rotateEuler(const Vec<NumericT, N, Container>& v, co
     };
 
     return v3;
+}
+
+template<typename T, typename C>
+Vec<T, 3, C>
+rotateAroundAxis(
+        const Vec<T, 3, C>& v,
+        const Vec<T, 3, C>& axis,
+        T angle)
+{
+    const T c = std::cos(angle);
+    const T s = std::sin(angle);
+
+    Vec<T, 3, C> result;
+
+    auto crossProduct = cross(axis, v);
+    T dotProduct = dot(axis, v);
+
+    for (int i = 0; i < 3; ++i)
+    {
+        result[i] =
+            v[i] * c +
+            crossProduct[i] * s +
+            axis[i] * dotProduct * (1 - c);
+    }
+
+    return result;
 }
 
 } // namespace sc::utils

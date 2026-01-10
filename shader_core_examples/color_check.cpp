@@ -1,5 +1,4 @@
 #include "entry_point.h"
-#include "camera/camera_view_iterator.h"
 
 int main()
 {
