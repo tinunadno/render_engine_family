@@ -74,6 +74,7 @@ int main()
     sc::Camera<float, sc::VecArray> camera;
     camera.pos() = Vec<float, 3>{0.f, 0.f, 2.f};
     camera.rot() = Vec<float, 3>{0.f, 0.f, 0.f};
+    // camera.setRes(Vec<float, 2>{51, 51}); // just an example
     Vec<float, 3> rotationVec{.0f, .1f, .0f};
     camera.setLen(0.3);
     sc::initRender(camera, shaderFunction,
@@ -82,7 +83,9 @@ int main()
             camera.pos() = rotateEuler(camera.pos(), rotationVec);
             camera.rot()[1] += .1f;
             camera.pos()[1] = std::sin(static_cast<float>(frame) / 100.f);
-        });
+        }
+        // , Vec<int, 2>{1000, 1000} // just an example
+        );
 
     return 0;
 }

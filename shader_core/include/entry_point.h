@@ -20,16 +20,29 @@ using VecArray = utils::Vec<T, N>;
 
 
 template<typename NumericT, typename ShadeFunction, typename EachFrameUpdate = decltype([](std::size_t, std::size_t){ })>
-void initRender(const Camera<NumericT, VecArray>& camera, ShadeFunction sf,
-    EachFrameUpdate efu = { }, unsigned int targetFrameRateMs = 60)
+void initRender(
+    const Camera<NumericT, VecArray>& camera,
+    ShadeFunction sf,
+    EachFrameUpdate efu = { },
+    utils::Vec<int, 2> windowResolution = utils::Vec<int, 2>{-1, -1},
+    unsigned int targetFrameRateMs = 60)
 {
     using namespace std::chrono_literals;
 
     const float targetFrameRateMsPerFrame = 1000.f / targetFrameRateMs;
 
+    utils::Vec<int, 2> windowRes = windowResolution;
+    if (windowRes[0] <= 0 || windowRes[1] <= 0)
+    {
+        windowRes[0] = camera.res()[0];
+        windowRes[1] = camera.res()[1];
+    }
+
     GLFWRenderer renderer(
-        static_cast<int>(camera.res()[0])
-        , static_cast<int>(camera.res()[1]));
+        camera.res()[0],
+        camera.res()[1],
+            windowRes
+        );
 
     std::size_t time = 0;
     std::size_t frame = 0;

@@ -1,5 +1,7 @@
 #include "entry_point.h"
 
+// just to check, if i've calculated uv correctly
+
 int main()
 {
 

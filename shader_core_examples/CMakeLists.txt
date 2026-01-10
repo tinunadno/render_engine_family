@@ -6,8 +6,8 @@ find_package(glfw3 3.3 REQUIRED)
 find_package(OpenGL REQUIRED)
 
 add_executable(shader_core_examples
-        color_check.cpp
-#        simple_ray_tracer.cpp
+#        color_check.cpp
+        simple_ray_tracer.cpp
 )
 
 target_link_libraries(shader_core_examples

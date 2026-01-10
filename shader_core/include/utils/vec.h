@@ -17,9 +17,6 @@ class Vec
 {
 public:
 
-    using valueType = NumericT;
-    static constexpr std::size_t dimension = N;
-
     Vec() = default;
 
     explicit Vec(const Container& data)
