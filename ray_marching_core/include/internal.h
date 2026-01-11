@@ -1,8 +1,18 @@
-//
-// Created by debian on 1/10/26.
-//
+#pragma once
 
-#ifndef CURVED_SPACE_RENDER_ENGINE_INTERNAL_H
-#define CURVED_SPACE_RENDER_ENGINE_INTERNAL_H
+#include "object/iobject.h"
 
-#endif //CURVED_SPACE_RENDER_ENGINE_INTERNAL_H
+#include <memory>
+
+
+namespace rmc::internal
+{
+
+template<typename NumericT>
+struct SdfResult
+{
+    const object::SceneObject<NumericT>* closestObject = nullptr;
+    NumericT distance;
+};
+
+} // namespace rmc::internal

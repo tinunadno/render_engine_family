@@ -138,6 +138,31 @@ operator*(const Vec<NumericT, N, Container>& a
 
 template<typename NumericT, std::size_t N, typename Container>
 constexpr Vec<NumericT, N, Container>
+operator*(const Vec<NumericT, N, Container>& a
+    , const Vec<NumericT, N, Container>& b)
+{
+    return binaryOp(a, b, std::multiplies<>{});
+}
+
+template<typename NumericT, std::size_t N, typename Container>
+constexpr Vec<NumericT, N, Container>
+operator/(const Vec<NumericT, N, Container>& a
+    , const Vec<NumericT, N, Container>& b)
+{
+    return binaryOp(a, b, [](const auto a, const auto b) { return a / b; });
+}
+
+template<typename NumericT, std::size_t N, typename Container>
+constexpr Vec<NumericT, N, Container>
+operator*(NumericT scalar
+        , const Vec<NumericT, N, Container>& a
+)
+{
+    return scalarBinaryOp(a, scalar, std::multiplies<>{});
+}
+
+template<typename NumericT, std::size_t N, typename Container>
+constexpr Vec<NumericT, N, Container>
 operator/(const Vec<NumericT, N, Container>& a
     , NumericT scalar)
 {
@@ -207,6 +232,15 @@ len(
     const Vec<NumericT, N, Container>& vec)
 {
     return std::sqrt(dot(vec, vec));
+}
+
+template<typename NumericT, std::size_t N, typename Container>
+constexpr NumericT
+distance(
+    const Vec<NumericT, N, Container>& a,
+    const Vec<NumericT, N, Container>& b)
+{
+    return len(b - a);
 }
 
 template<typename NumericT, std::size_t N, typename Container>

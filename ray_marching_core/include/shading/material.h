@@ -1,8 +1,23 @@
-//
-// Created by debian on 1/10/26.
-//
+#pragma once
 
-#ifndef CURVED_SPACE_RENDER_ENGINE_MATERIAL_H
-#define CURVED_SPACE_RENDER_ENGINE_MATERIAL_H
+#include "utils/vec.h"
 
-#endif //CURVED_SPACE_RENDER_ENGINE_MATERIAL_H
+namespace rmc::shader
+{
+
+class Material
+{
+public:
+
+    Material()
+        : color(sc::utils::Vec<float, 3>{1.f, 0.f, 0.f})
+    { }
+
+    Material(const sc::utils::Vec<float, 3>& color_)
+        : color(color_)
+    { }
+
+    sc::utils::Vec<float, 3> color;
+};
+
+} // namespace rmc::material

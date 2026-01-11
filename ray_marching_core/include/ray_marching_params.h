@@ -1,8 +1,14 @@
-//
-// Created by debian on 1/10/26.
-//
+#pragma once
 
-#ifndef CURVED_SPACE_RENDER_ENGINE_RAY_MARCHING_PARAMS_H
-#define CURVED_SPACE_RENDER_ENGINE_RAY_MARCHING_PARAMS_H
+namespace rmc
+{
 
-#endif //CURVED_SPACE_RENDER_ENGINE_RAY_MARCHING_PARAMS_H
+template<typename NumericT>
+struct RayMarchingParams
+{
+    NumericT threshold;
+    NumericT maxIterations;
+    NumericT maxDistance;
+};
+
+} // namespace rmc

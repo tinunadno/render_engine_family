@@ -18,7 +18,7 @@ inline void render(
 {
     for (const auto& ps : cameraView)
     {
-        utils::Vec<NumericT, 3> color = sf(ps, frame, timeMs);
+        utils::Vec<float, 3> color = sf(ps, frame, timeMs);
         renderer.setPixel(ps.pixelX, ps.pixelY, color);
     }
 }

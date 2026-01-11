@@ -7,4 +7,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_BUILD_TYPE Release)
 
 add_subdirectory(shader_core)
-add_subdirectory(shader_core_examples)
+#add_subdirectory(shader_core_examples)
+add_subdirectory(ray_marching_core)
+add_subdirectory(black_hole_shader)

@@ -1,8 +1,19 @@
-//
-// Created by debian on 1/10/26.
-//
+#pragma once
 
-#ifndef CURVED_SPACE_RENDER_ENGINE_RAY_MARCHING_RESULT_H
-#define CURVED_SPACE_RENDER_ENGINE_RAY_MARCHING_RESULT_H
+#include "shading/material.h"
+#include "utils/vec.h"
 
-#endif //CURVED_SPACE_RENDER_ENGINE_RAY_MARCHING_RESULT_H
+namespace rmc
+{
+
+template<typename NumericT>
+struct RayMarchingResult
+{
+    sc::utils::Vec<NumericT, 3> finalPosition;
+    sc::utils::Vec<NumericT, 3> normal;
+    shader::Material material;
+    NumericT distance;
+    bool reachedThreshold;
+};
+
+} // namespace rmc

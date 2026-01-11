@@ -8,7 +8,11 @@ class ICurvature
 {
 public:
     virtual ~ICurvature() = default;
-    virtual void deflect(const sc::utils::Vec<NumericT,3>& pos, const sc::utils::Vec<NumericT,3>& dir);
+    virtual void deflect(
+        const sc::utils::Vec<NumericT,3>& pos,
+        sc::utils::Vec<NumericT,3>& dir,
+        NumericT& stepSize
+    ) = 0;
 };
 
 } // namespace rmc::curvature

@@ -8,30 +8,46 @@
 namespace rmc
 {
 
+
 template<typename NumericT>
 RayMarchingResult<NumericT> marchRay(
     const sc::utils::Ray<NumericT, 3>& ray,
-    Scene<NumericT>& scene,
-    const RayMarchingParams<NumericT>& params = {NumericT(1e-6, 30)})
+    const Scene<NumericT>& scene,
+    const RayMarchingParams<NumericT>& params = {
+        NumericT(1e-6), NumericT(80), NumericT(100)
+    })
 {
-    RayMarchingResult<NumericT> ret;
+    RayMarchingResult<NumericT> ret{};
     internal::SdfResult<NumericT> sdfResult;
-    NumericT passedDistance = 1.f;
-    for (int i = 0; i < params.maxIterations; i++)
+
+    sc::utils::Vec<NumericT, 3> pos = ray.pos();
+    sc::utils::Vec<NumericT, 3> dir = sc::utils::norm(ray.rot());
+
+    NumericT totalTraveled = 0;
+
+    for (int i = 0; i < params.maxIterations; ++i)
     {
-        scene.sdf(ray.pos() + ray.rot() * passedDistance, sdfResult);
-        passedDistance += sdfResult.distance;
-        if (sdfResult.distance <= params.threshold)
-            goto succeed;
+        scene.sdf(pos, sdfResult);
+        NumericT currentStep = sdfResult.distance;
+        if (totalTraveled > params.maxDistance) break;
+        if (currentStep <= params.threshold)
+        {
+            ret.finalPosition = pos;
+            ret.normal = sdfResult.closestObject->shape->normal(pos);
+            ret.distance = totalTraveled;
+            ret.material = sdfResult.closestObject->material;
+            ret.reachedThreshold = true;
+            return ret;
+        }
+        scene.applyCurvature(pos, dir, currentStep);
+        pos += dir * currentStep;
+        totalTraveled += currentStep;
     }
+
     ret.reachedThreshold = false;
-    return ret;
-succeed:
-    ret.finalPosition = ray.pos() + ray.rot() * passedDistance;
-    ret.normal = sdfResult.closestObject.normal();
-    ret.distance = sdfResult.distance;
-    ret.reachedThreshold = true;
+    ret.distance = totalTraveled;
     return ret;
 }
+
 
 } // namespace rmc
