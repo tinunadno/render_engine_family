@@ -77,7 +77,7 @@ int main()
     // camera.setRes(Vec<float, 2>{51, 51}); // just an example
     Vec<float, 3> rotationVec{.0f, .1f, .0f};
     camera.setLen(0.3);
-    sc::initRender(camera, shaderFunction,
+    sc::initEachPixelRender(camera, shaderFunction,
     [&camera, &rotationVec](std::size_t frame, std::size_t)
         {
             camera.pos() = rotateEuler(camera.pos(), rotationVec);

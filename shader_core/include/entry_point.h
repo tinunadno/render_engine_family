@@ -18,11 +18,14 @@ namespace sc
 template<typename T, std::size_t N>
 using VecArray = utils::Vec<T, N>;
 
+namespace renderInternal {
 
-template<typename NumericT, typename ShadeFunction, typename EachFrameUpdate = decltype([](std::size_t, std::size_t){ })>
+template<typename NumericT,
+    typename RenderFunction,
+    typename EachFrameUpdate = decltype([](std::size_t, std::size_t){ })>
 void initRender(
-    const Camera<NumericT, VecArray>& camera,
-    ShadeFunction sf,
+const Camera<NumericT, VecArray>& camera,
+    RenderFunction rf,
     EachFrameUpdate efu = { },
     utils::Vec<int, 2> windowResolution = utils::Vec<int, 2>{-1, -1},
     unsigned int targetFrameRateMs = 60)
@@ -49,7 +52,7 @@ void initRender(
     while (!renderer.shouldClose())
     {
         auto start = std::chrono::system_clock::now();
-        render(renderer, sc::makeViewFromCamera(camera), frame++, time, sf);
+        rf(renderer, frame++, time);
         renderer.show();
         efu(frame, time);
         auto end = std::chrono::system_clock::now();
@@ -67,6 +70,44 @@ void initRender(
         std::cout << "[FPS]: " << 1000. / static_cast<float>(elapsedTime) << "\n";
 #endif
     }
+}
+
+} // namespace renderInternal
+
+template<typename NumericT, typename FrameFunction, typename EachFrameUpdate = decltype([](std::size_t, std::size_t){ })>
+void initPerFrameRender(
+    const Camera<NumericT, VecArray>& camera,
+    FrameFunction ff,
+    EachFrameUpdate efu = { },
+    utils::Vec<int, 2> windowResolution = utils::Vec<int, 2>{-1, -1},
+    unsigned int targetFrameRateMs = 60)
+{
+    renderInternal::initRender(camera,
+        [&ff](GLFWRenderer& renderer, std::size_t frame, const std::size_t time) {
+            ff(renderer, frame, time);
+        },
+        efu,
+        windowResolution,
+        targetFrameRateMs
+    );
+}
+
+template<typename NumericT, typename ShadeFunction, typename EachFrameUpdate = decltype([](std::size_t, std::size_t){ })>
+void initEachPixelRender(
+    const Camera<NumericT, VecArray>& camera,
+    ShadeFunction sf,
+    EachFrameUpdate efu = { },
+    utils::Vec<int, 2> windowResolution = utils::Vec<int, 2>{-1, -1},
+    unsigned int targetFrameRateMs = 60)
+{
+    renderInternal::initRender(camera,
+        [&camera, &sf](GLFWRenderer& renderer, std::size_t frame, const std::size_t time) {
+            render(renderer, sc::makeViewFromCamera(camera), frame, time, sf);
+        },
+        efu,
+        windowResolution,
+        targetFrameRateMs
+    );
 }
 
 } // namespace sc

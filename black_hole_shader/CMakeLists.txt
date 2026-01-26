@@ -7,6 +7,7 @@ find_package(OpenGL REQUIRED)
 
 add_executable(black_hole_shader
         main.cpp
+        ../shader_core_examples/hole_frame_color_check.cpp
 )
 
 target_link_libraries(black_hole_shader

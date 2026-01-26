@@ -57,7 +57,7 @@ int main()
     scene.addObject(sphere1);
     scene.addCurvature(bhCurvature);
 
-    sc::initRender(camera,
+    sc::initEachPixelRender(camera,
         [&scene](const sc::PixelSample<fpT>& ps, std::size_t, std::size_t)
             {
                 return shaderFunction(ps, scene);
