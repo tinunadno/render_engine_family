@@ -29,7 +29,7 @@ void initRender(
 {
     using namespace std::chrono_literals;
 
-    const float targetFrameRateMsPerFrame = 1000.f / targetFrameRateMs;
+    const float targetFrameRateMsPerFrame = 1000.f / static_cast<float>(targetFrameRateMs);
 
     utils::Vec<int, 2> windowRes = windowResolution;
     if (windowRes[0] <= 0 || windowRes[1] <= 0)
@@ -54,7 +54,7 @@ void initRender(
         efu(frame, time);
         auto end = std::chrono::system_clock::now();
         auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-        int targetFrameRateDiff = targetFrameRateMsPerFrame - static_cast<int>(elapsedTime);
+        int targetFrameRateDiff = static_cast<int>(targetFrameRateMsPerFrame) - static_cast<int>(elapsedTime);
         if (targetFrameRateDiff > 0)
             std::this_thread::sleep_for(std::chrono::milliseconds(targetFrameRateDiff));
         end = std::chrono::system_clock::now();
