@@ -50,7 +50,9 @@ template<typename NumericT,
 void initMrcRender(sc::Camera<NumericT, sc::VecArray>& camera,
                    std::vector<Model<NumericT>>& models,
                    EachFrameModelUpdate efmu = { },
-                   CustomDrawer cd = { })
+                   CustomDrawer cd = { },
+                   sc::utils::Vec<int, 2> windowResolution = sc::utils::Vec<int, 2>{-1, -1},
+                   unsigned int targetFrameRateMs = 60)
 {
     using Mat4 = sc::utils::Mat<NumericT, 4, 4>;
 
@@ -81,7 +83,7 @@ void initMrcRender(sc::Camera<NumericT, sc::VecArray>& camera,
         internal::renderSingleFrame(models, camera, zBuffer, renderer, viewProj);
         cd(frame, time, renderer, viewProj);
     };
-    sc::initPerFrameRender(camera, ff);
+    sc::initPerFrameRender(camera, ff, {}, windowResolution, targetFrameRateMs);
 }
 
 } // namespace mrc

@@ -74,6 +74,7 @@ public:
         glfwTerminate();
     }
 
+
     void setPixel(std::size_t x,
                   std::size_t y,
                   const utils::Vec<float, 3>& color)
