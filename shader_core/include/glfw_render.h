@@ -41,6 +41,7 @@ public:
         glfwMakeContextCurrent(_window);
 
         glfwSetWindowUserPointer(_window, this);
+        glfwSetMouseButtonCallback(_window, &GLFWRenderer::mouseButtonCallback);
         glfwSetKeyCallback(_window, &GLFWRenderer::keyCallback);
         glfwSetCursorPosCallback(_window, &GLFWRenderer::mouseMoveCallback);
 
@@ -190,6 +191,7 @@ private:
     double _lastMouseX = 0.0;
     double _lastMouseY = 0.0;
     bool _firstMouse = true;
+    bool _mouseCaptured = false;
 
     static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
     {
@@ -199,7 +201,7 @@ private:
         auto* self =
             static_cast<GLFWRenderer*>(glfwGetWindowUserPointer(window));
 
-        if (!self)
+        if (!self || !self->_mouseCaptured)
             return;
 
         auto it = self->_keyHandlers.find(key);
@@ -213,7 +215,7 @@ private:
         auto* self =
             static_cast<GLFWRenderer*>(glfwGetWindowUserPointer(window));
 
-        if (!self || !self->_mouseMoveHandler)
+        if (!self || !self->_mouseCaptured || !self->_mouseMoveHandler)
             return;
 
         if (self->_firstMouse)
@@ -231,6 +233,33 @@ private:
         self->_lastMouseY = ypos;
 
         self->_mouseMoveHandler(dx, dy);
+    }
+
+    static void mouseButtonCallback(GLFWwindow* window,
+                                int button,
+                                int action,
+                                int mods)
+    {
+        if (button != GLFW_MOUSE_BUTTON_LEFT || action != GLFW_PRESS)
+            return;
+
+        auto* self =
+            static_cast<GLFWRenderer*>(glfwGetWindowUserPointer(window));
+
+        if (!self)
+            return;
+
+        self->_mouseCaptured = !self->_mouseCaptured;
+
+        if (self->_mouseCaptured)
+        {
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            self->_firstMouse = true; // чтобы не было скачка
+        }
+        else
+        {
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        }
     }
 };
 
