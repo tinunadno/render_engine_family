@@ -37,8 +37,10 @@ inline std::vector<mrc::Model<float>> snapshotsToModels(
     for (const auto& snap : snapshots)
     {
         mrc::Model<float> model;
-        std::vector<sc::utils::Vec<float, 3>> vertices(snap.roi.size() + 1);
-        std::vector<mrc::Model<float>::Face> faces(snap.roi.size());
+        size_t n = snap.roi.size();
+        if (n < 3) continue;
+        std::vector<sc::utils::Vec<float, 3>> vertices(n + 1);
+        std::vector<mrc::Model<float>::Face> faces(n + (n - 2));
         vertices[0] = snap.cameraPosition;
         for (size_t i = 0; i < snap.roi.size(); ++i)
         {
@@ -55,15 +57,32 @@ inline std::vector<mrc::Model<float>> snapshotsToModels(
             ws += snap.cameraUp * camCord[1];
             vertices[i + 1] = ws;
         }
-        for (std::size_t f = 0; f < snap.roi.size(); ++f)
+        for (size_t i = 0; i < n; ++i)
         {
-            faces[f][0] = {0, 0, 0};
-            faces[f][1] = {f, 0, 0};
-            faces[f][2] = {(f + 1) % snap.roi.size(), 0, 0};
+            size_t currentBaseIdx = i + 1;
+            size_t nextBaseIdx = (i == n - 1) ? 1 : i + 2;
+            mrc::Model<float>::Face face;
+            face[0] = {0, 0, 0};
+            face[1] = {currentBaseIdx, 0, 0};
+            face[2] = {nextBaseIdx, 0, 0};
+            faces.push_back(face);
+        }
+        for (size_t i = 1; i < n - 1; ++i)
+        {
+            mrc::Model<float>::Face baseFace;
+            baseFace[0] = {1, 0, 0};
+            baseFace[1] = {i + 2, 0, 0};
+            baseFace[2] = {i + 1, 0, 0};
+            faces.push_back(baseFace);
         }
         model.verticies() = vertices;
         model.faces() = faces;
         models.push_back(model);
     }
     return models;
+}
+
+inline mrc::Model<float> intersectMrcModels(const std::vector<mrc::Model<float>>& models)
+{
+
 }

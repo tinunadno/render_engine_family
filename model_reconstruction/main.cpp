@@ -1,5 +1,6 @@
 #include "main_pipeline.h"
 #include "snapshot.h"
+#include "model_intersection.h"
 
 inline float dotThree(const sc::utils::Vec<float, 2>& a, const sc::utils::Vec<float, 2>& b,
                       const sc::utils::Vec<float, 2>& c) {
@@ -98,7 +99,7 @@ std::vector<Snapshot> runFirstRender()
     return snapshots;
 }
 
-void runSecondRender(const std::vector<Snapshot>& snapshots)
+std::vector<mrc::Model<float>> runSecondRender(const std::vector<Snapshot>& snapshots)
 {
     sc::Camera<float, sc::VecArray> camera;
     camera.pos()[2] = 2.0f;
@@ -106,33 +107,26 @@ void runSecondRender(const std::vector<Snapshot>& snapshots)
 
     auto models = snapshotsToModels(snapshots);
 
+    mrc::initMrcRender(camera, models);
+    return models;
+}
 
-    auto edgeDrawer = [&models, &camera](
-        std::size_t,
-        std::size_t,
-        sc::GLFWRenderer& renderer,
-        sc::utils::Mat<float, 4, 4>& proj) {
+void runThirdRender(const std::vector<mrc::Model<float>>& coneModels)
+{
+    sc::Camera<float, sc::VecArray> camera;
+    camera.pos()[2] = 2.0f;
+    camera.setLen(0.3);
+    std::vector<mrc::Model<float>> models;
+    models.emplace_back(mi::ComputeIntersection(coneModels));
 
-        for (const auto& model : models) {
-            for (std::size_t f = 0; f < model.faces().size(); ++f) {
-                auto triangle = model.getPolygon(f, model.verticies());
-                auto v0 = mrc::projectVertex(triangle[0], proj, camera);
-                auto v1 = mrc::projectVertex(triangle[1], proj, camera);
-                auto v2 = mrc::projectVertex(triangle[2], proj, camera);
-                mrc::gt::drawLine(renderer, v0.pixel, v1.pixel, sc::utils::Vec<float, 3>(1., 0., 0.));
-                mrc::gt::drawLine(renderer, v1.pixel, v2.pixel, sc::utils::Vec<float, 3>(1., 0., 0.));
-                mrc::gt::drawLine(renderer, v2.pixel, v0.pixel, sc::utils::Vec<float, 3>(1., 0., 0.));
-            }
-        }
-    };
-
-    mrc::initMrcRender(camera, models, {}, edgeDrawer);
+    mrc::initMrcRender(camera, models);
 }
 
 int main()
 {
     auto snapshots = runFirstRender();
-    runSecondRender(snapshots);
+    auto models = runSecondRender(snapshots);
+    runThirdRender(models);
 
     return 0;
 }
