@@ -7,7 +7,6 @@ find_package(OpenGL REQUIRED)
 
 add_executable(black_hole_shader
         main.cpp
-        ../model_reconstruction/main.cpp
 )
 
 target_link_libraries(black_hole_shader

@@ -67,7 +67,7 @@ int main()
             // camera.pos() = rotateEuler(camera.pos(), rotationVec);
             // camera.rot()[1] += .1f;
             camera.pos()[1] = std::sin(static_cast<fpT>(frame) / 100.f);
-        },
+        }, {}, {},
         sc::utils::Vec<int, 2>{500, 500});
     return 0;
 }
