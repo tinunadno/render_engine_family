@@ -19,5 +19,5 @@ target_include_directories(model_render_core
 target_compile_features(model_render_core INTERFACE cxx_std_20)
 
 target_compile_definitions(model_render_core
-        INTERFACE ENABLE_LOG
+        INTERFACE
 )

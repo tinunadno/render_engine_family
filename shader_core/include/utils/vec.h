@@ -29,9 +29,9 @@ public:
 
     template<
         typename... Args,
-        typename = std::enable_if<
+        typename = std::enable_if_t<
             sizeof...(Args) == N &&
-            (std::is_convertible_v<Args, NumericT> && ...)
+            (std::is_arithmetic_v<std::decay_t<Args>> && ...)
         >
     >
     explicit Vec(Args&&... args)
@@ -199,6 +199,14 @@ operator-(const Vec<NumericT, N, Container>& a
         , const Vec<NumericT, N, Container>& b)
 {
     return binaryOp(a, b, [](const auto aa, const auto bb) { return aa - bb; });
+}
+
+template<typename NumericT, std::size_t N, typename Container>
+constexpr Vec<NumericT, N, Container>
+operator-(const Vec<NumericT, N, Container>& a
+        , NumericT scalar)
+{
+    return unaryOp(a, [&scalar](const auto aa) { return aa - scalar; });
 }
 
 template<typename NumericT, std::size_t N, typename Container>

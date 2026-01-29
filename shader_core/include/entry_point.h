@@ -20,42 +20,13 @@ using VecArray = utils::Vec<T, N>;
 
 namespace renderInternal {
 
-template<typename NumericT,
-    typename RenderFunction,
-    typename EachFrameUpdate = decltype([](std::size_t, std::size_t){ })>
-void initRender(
-const Camera<NumericT, VecArray>& camera,
+template<typename RenderFunction,
+         typename EachFrameUpdate = decltype([](std::size_t, std::size_t){ })>
+void runMainRenderThread(GLFWRenderer& renderer,
     RenderFunction rf,
-    EachFrameUpdate efu = { },
-    const std::vector<std::pair<int, std::function<void()>>>& keyHandlers = { },
-    const std::function<void(double, double)>& mouseHandler = { },
-    utils::Vec<int, 2> windowResolution = utils::Vec<int, 2>{-1, -1},
-    unsigned int targetFrameRateMs = 60)
+    EachFrameUpdate efu,
+    float targetFrameRateMsPerFrame)
 {
-    using namespace std::chrono_literals;
-
-    const float targetFrameRateMsPerFrame = 1000.f / static_cast<float>(targetFrameRateMs);
-
-    utils::Vec<int, 2> windowRes = windowResolution;
-    if (windowRes[0] <= 0 || windowRes[1] <= 0)
-    {
-        windowRes[0] = camera.res()[0];
-        windowRes[1] = camera.res()[1];
-    }
-
-    GLFWRenderer renderer(
-        camera.res()[0],
-        camera.res()[1],
-            windowRes
-        );
-
-    for (const auto& keyHandler : keyHandlers)
-    {
-        renderer.onKey(keyHandler.first, keyHandler.second);
-    }
-
-    renderer.onMouseMove(mouseHandler);
-
     std::size_t time = 0;
     std::size_t frame = 0;
     while (!renderer.shouldClose())
@@ -79,6 +50,46 @@ const Camera<NumericT, VecArray>& camera,
         std::cout << "[FPS]: " << 1000. / static_cast<float>(elapsedTime) << "\n";
 #endif
     }
+}
+
+
+template<typename NumericT,
+    typename RenderFunction,
+    typename EachFrameUpdate = decltype([](std::size_t, std::size_t){ })>
+void initRender(
+    const Camera<NumericT, VecArray>& camera,
+    RenderFunction rf,
+    EachFrameUpdate efu = { },
+    const std::vector<std::pair<int, std::function<void()>>>& keyHandlers = { },
+    const std::function<void(double, double)>& mouseHandler = { },
+    utils::Vec<int, 2> windowResolution = utils::Vec<int, 2>{-1, -1},
+    unsigned int targetFrameRateMs = 60)
+{
+    using namespace std::chrono_literals;
+
+    const float targetFrameRateMsPerFrame = 1000.f / static_cast<float>(targetFrameRateMs);
+
+    utils::Vec windowRes(windowResolution);
+    if (windowRes[0] <= 0 || windowRes[1] <= 0)
+    {
+        windowRes[0] = camera.res()[0];
+        windowRes[1] = camera.res()[1];
+    }
+
+    GLFWRenderer renderer(
+        camera.res()[0],
+        camera.res()[1],
+            windowRes
+        );
+
+    for (const auto& keyHandler : keyHandlers)
+    {
+        renderer.onKey(keyHandler.first, keyHandler.second);
+    }
+
+    renderer.onMouseMove(mouseHandler);
+
+    runMainRenderThread(renderer, rf, efu, targetFrameRateMsPerFrame);
 }
 
 } // namespace renderInternal

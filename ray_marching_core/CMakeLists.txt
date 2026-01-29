@@ -13,5 +13,5 @@ target_include_directories(ray_marching_core
 target_compile_features(ray_marching_core INTERFACE cxx_std_20)
 
 target_compile_definitions(ray_marching_core
-        INTERFACE ENABLE_LOG
+        INTERFACE
 )

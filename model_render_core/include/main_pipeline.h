@@ -13,7 +13,7 @@ namespace internal
 {
 
 template<typename NumericT>
-void renderSingleFrame(std::vector<Model<NumericT>>& models,
+void renderSingleFrame(const std::vector<Model<NumericT>>& models,
                        const sc::Camera<NumericT, sc::VecArray>& camera,
                        std::vector<std::vector<NumericT>>& zBuffer,
                        sc::GLFWRenderer& renderer,
@@ -27,6 +27,7 @@ void renderSingleFrame(std::vector<Model<NumericT>>& models,
             auto normal = mrc::getFaceNormal(model, f);
             float col = sc::utils::getCos(normal, sc::utils::Vec<float, 3>{1., 0, 0});
             col = (col + 1.f) / 2.f;
+            col = col == 0.f ? .1f : col;
             sc::utils::Vec<float, 3> resultingColor{col, col, col};
 
             gt::drawTriangleByZBuffer(
@@ -64,7 +65,7 @@ template<typename NumericT,
     typename CustomDrawer =
         decltype([](std::size_t, std::size_t, sc::GLFWRenderer&, const sc::utils::Mat<NumericT, 4, 4>&){ })>
 void initMrcRender(sc::Camera<NumericT, sc::VecArray>& camera,
-                   std::vector<Model<NumericT>>& models,
+                   const std::vector<Model<NumericT>>& models,
                    EachFrameModelUpdate efmu = { },
                    CustomDrawer cd = { },
                    const std::vector<std::pair<int, std::function<void()>>>& customKeyHandlers = {},

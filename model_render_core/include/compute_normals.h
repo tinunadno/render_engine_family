@@ -3,18 +3,12 @@
 #include "utils/vec.h"
 #include "model.h"
 
-namespace mrc
-{
-
+namespace mrc {
 template<typename NumericT>
-sc::utils::Vec<NumericT, 3>
-getFaceNormal(const Model<NumericT>& model, std::size_t faceIdx)
-{
-    const auto& n1 = model.normals()[model.faces()[faceIdx][0][2]];
-    const auto& n2 = model.normals()[model.faces()[faceIdx][1][2]];
-    const auto& n3 = model.normals()[model.faces()[faceIdx][2][2]];
-    sc::utils::Vec<NumericT, 3> faceNormal = (n1 + n2 + n3) / NumericT(3);
-    return faceNormal;
+sc::utils::Vec<NumericT, 3> getFaceNormal(const Model<NumericT> &model, std::size_t faceIdx) {
+    const auto &v0 = model.verticies()[model.faces()[faceIdx][0][0]];
+    const auto &v1 = model.verticies()[model.faces()[faceIdx][1][0]];
+    const auto &v2 = model.verticies()[model.faces()[faceIdx][2][0]];
+    return sc::utils::norm(sc::utils::cross(v1 - v0, v2 - v0));
 }
-
-}
+} // namespace mrc

@@ -14,5 +14,5 @@ target_include_directories(shader_core
 target_compile_features(shader_core INTERFACE cxx_std_20)
 
 target_compile_definitions(shader_core
-        INTERFACE ENABLE_LOG
+        INTERFACE
 )
