@@ -1,7 +1,7 @@
 #pragma once
 
 #include "utils/vec.h"
-#include "model.h"
+#include "../model.h"
 
 namespace mrc {
 template<typename NumericT>

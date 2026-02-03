@@ -1,5 +1,6 @@
 #pragma once
 #include "glfw_render.h"
+#include "point_projection.h"
 
 namespace mrc::gt
 {
@@ -105,26 +106,74 @@ void drawTriangle(
     }
 }
 
+/// \brief findClipCross finds point such as p.z = -p.w, eg point,
+/// that crosses screen space border in clip space coordinates
 template<typename NumericT>
-void drawTriangleByZBuffer(
-    sc::GLFWRenderer& renderer,
-    const Model<NumericT>& model,
-    const std::vector<sc::utils::Vec<NumericT, 3>>& verticies,
-    std::size_t faceIdx,
-    const sc::utils::Vec<NumericT, 3>& color,
-    const sc::Camera<NumericT, sc::VecArray>& camera,
-    std::vector<std::vector<NumericT>>& zBuffer,
-    const sc::utils::Mat<NumericT, 4, 4>& viewProj)
+internal::ClipVertex<NumericT> findClipCross(
+    const internal::ClipVertex<NumericT>& a,
+    const internal::ClipVertex<NumericT>& b)
 {
-    const auto poly = model.getPolygon(faceIdx, verticies);
+    NumericT da = a.clip[2] + a.clip[3];
+    NumericT db = b.clip[2] + b.clip[3];
+    NumericT t = da / (da - db);
 
-    const auto pv0 = projectVertex(poly[0], viewProj, camera);
-    const auto pv1 = projectVertex(poly[1], viewProj, camera);
-    const auto pv2 = projectVertex(poly[2], viewProj, camera);
+    internal::ClipVertex<NumericT> r;
+    r.clip = a.clip + (b.clip - a.clip) * t;
+    r.invW = NumericT(1) / r.clip[3];
+    return r;
+}
 
-    if (pv0.invW <= 0 || pv1.invW <= 0 || pv2.invW <= 0) {
-        return;
-    }
+/// \brief handleTwoClipOut takes three clip coordinates, two of them not visible
+/// returns proper triangle complete in screen space
+template<typename NumericT>
+std::array<internal::ProjectedVertex<NumericT>, 3> handleTwoClipOut(
+    const internal::ClipVertex<NumericT>& out1,
+    const internal::ClipVertex<NumericT>& out2,
+    const internal::ClipVertex<NumericT>& in,
+    const sc::Camera<NumericT, sc::VecArray>& cam)
+{
+    return {
+        clipToProjectedVertex(findClipCross(out1, in), cam),
+        clipToProjectedVertex(findClipCross(out2, in), cam),
+        clipToProjectedVertex(in, cam),
+    };
+}
+
+/// \brief splits triangle with one of vertices out of ss into two triangles in screen space
+template<typename NumericT>
+std::pair<std::array<internal::ProjectedVertex<NumericT>, 3>,
+    std::array<internal::ProjectedVertex<NumericT>, 3>> handleOneClipOut(
+         const internal::ClipVertex<NumericT>& in1,
+         const internal::ClipVertex<NumericT>& in2,
+         const internal::ClipVertex<NumericT>& out,
+         const sc::Camera<NumericT, sc::VecArray>& cam)
+{
+    auto in2ToOut = clipToProjectedVertex(findClipCross(in2, out), cam);
+    return {
+        {
+            clipToProjectedVertex(in1, cam),
+            clipToProjectedVertex(in2, cam),
+            in2ToOut,
+        },
+        {
+            clipToProjectedVertex(in1, cam),
+            in2ToOut,
+            clipToProjectedVertex(findClipCross(in1, out), cam),
+        }
+    };
+}
+
+template<typename NumericT>
+void drawProjectedTriangleByZBuffer(
+    sc::GLFWRenderer& renderer,
+    const std::array<internal::ProjectedVertex<NumericT>, 3>& projectedPoly,
+    const sc::utils::Vec<NumericT, 3>& color,
+    std::vector<std::vector<NumericT>>& zBuffer
+)
+{
+    const auto& pv0 = projectedPoly[0];
+    const auto& pv1 = projectedPoly[1];
+    const auto& pv2 = projectedPoly[2];
 
     const sc::utils::Vec<NumericT, 2>& v0 = pv0.pixel;
     const sc::utils::Vec<NumericT, 2>& v1 = pv1.pixel;
@@ -151,19 +200,18 @@ void drawTriangleByZBuffer(
     {
         for (int x = minX; x <= maxX; ++x)
         {
-            sc::utils::Vec<NumericT, 2> p{(NumericT)x + 0.5f, (NumericT)y + 0.5f };
+            sc::utils::Vec<NumericT, 2> p{NumericT(x) + 0.5f, NumericT(y) + 0.5f };
             NumericT w0 = edgeFunction(v1, v2, p) * invArea;
             NumericT w1 = edgeFunction(v2, v0, p) * invArea;
             NumericT w2 = edgeFunction(v0, v1, p) * invArea;
             if ((area > 0 && w0 >= 0 && w1 >= 0 && w2 >= 0) ||
                 (area < 0 && w0 <= 0 && w1 <= 0 && w2 <= 0))
             {
-                NumericT absw0 = std::abs(w0);
-                NumericT absw1 = std::abs(w1);
-                NumericT absw2 = std::abs(w2);
-
-                float baryInvW = pv0.invW * absw0 + pv1.invW * absw1 + pv2.invW * absw2;
-                float currentZ = 1.0f / baryInvW;
+                NumericT baryInvW =
+                    w0 * pv0.invW +
+                    w1 * pv1.invW +
+                    w2 * pv2.invW;
+                NumericT currentZ = 1.0f / baryInvW;
 
                 if (currentZ > 0 && currentZ < zBuffer[y][x])
                 {
@@ -173,6 +221,95 @@ void drawTriangleByZBuffer(
             }
         }
     }
+}
+
+template<typename NumericT>
+bool triangleTriviallyClipped(
+    const internal::ClipVertex<NumericT>& v0,
+    const internal::ClipVertex<NumericT>& v1,
+    const internal::ClipVertex<NumericT>& v2
+) {
+    auto outsideLeft = [](const auto& v) { return v.clip[0] < -v.clip[3]; };
+    auto outsideRight = [](const auto& v) { return v.clip[0] > v.clip[3]; };
+    auto outsideBottom = [](const auto& v) { return v.clip[1] < -v.clip[3]; };
+    auto outsideTop = [](const auto& v) { return v.clip[1] > v.clip[3]; };
+    auto outsideNear = [](const auto& v) { return v.clip[2] < -v.clip[3]; };
+    auto outsideFar = [](const auto& v) { return v.clip[2] > v.clip[3]; };
+
+    if (outsideLeft(v0) && outsideLeft(v1) && outsideLeft(v2)) return true;
+    if (outsideRight(v0) && outsideRight(v1) && outsideRight(v2)) return true;
+    if (outsideBottom(v0) && outsideBottom(v1) && outsideBottom(v2)) return true;
+    if (outsideTop(v0) && outsideTop(v1) && outsideTop(v2)) return true;
+    if (outsideNear(v0) && outsideNear(v1) && outsideNear(v2)) return true;
+    if (outsideFar(v0) && outsideFar(v1) && outsideFar(v2)) return true;
+
+    return false;
+}
+
+template<typename NumericT>
+void drawTriangleByZBuffer(
+    sc::GLFWRenderer& renderer,
+    const Model<NumericT>& model,
+    const std::vector<sc::utils::Vec<NumericT, 3>>& verticies,
+    std::size_t faceIdx,
+    const sc::utils::Vec<NumericT, 3>& color,
+    const sc::Camera<NumericT, sc::VecArray>& camera,
+    std::vector<std::vector<NumericT>>& zBuffer,
+    const sc::utils::Mat<NumericT, 4, 4>& viewProj)
+{
+    const auto poly = model.getPolygon(faceIdx, verticies);
+
+    const auto clip0 = wsToClip(poly[0], viewProj);
+    const auto clip1 = wsToClip(poly[1], viewProj);
+    const auto clip2 = wsToClip(poly[2], viewProj);
+
+    const bool clip0Out = clip0.clip[2] < -clip0.clip[3];
+    const bool clip1Out = clip1.clip[2] < -clip1.clip[3];
+    const bool clip2Out = clip2.clip[2] < -clip2.clip[3];
+
+    int outCount = static_cast<int>(clip0Out) +
+                   static_cast<int>(clip1Out) +
+                   static_cast<int>(clip2Out);
+
+    if (triangleTriviallyClipped(clip0, clip1, clip2)) return;
+
+    if (outCount == 1)
+    {
+        internal::ClipVertex<NumericT> in[2];
+        internal::ClipVertex<NumericT> out;
+
+        int inIdx = 0;
+        if (!clip0Out) in[inIdx++] = clip0; else out = clip0;
+        if (!clip1Out) in[inIdx++] = clip1; else out = clip1;
+        if (!clip2Out) in[inIdx] = clip2; else out = clip2;
+
+        auto targetTriangles = handleOneClipOut(in[0], in[1], out, camera);
+        drawProjectedTriangleByZBuffer(renderer, targetTriangles.first, color, zBuffer);
+        drawProjectedTriangleByZBuffer(renderer, targetTriangles.second, color, zBuffer);
+        return;
+    }
+
+    std::array<internal::ProjectedVertex<NumericT>, 3> targetTriangle;
+    if (outCount == 2)  // two of them out of bounds
+    {
+        internal::ClipVertex<NumericT> out[2];
+        internal::ClipVertex<NumericT> in;
+
+        int inIdx = 0;
+        if (clip0Out) out[inIdx++] = clip0; else in = clip0;
+        if (clip1Out) out[inIdx++] = clip1; else in = clip1;
+        if (clip2Out) out[inIdx] = clip2; else in = clip2;
+        targetTriangle = handleTwoClipOut(out[0], out[1], in, camera);
+    } else
+    {
+        targetTriangle = {
+            clipToProjectedVertex(clip0, camera),
+            clipToProjectedVertex(clip1, camera),
+            clipToProjectedVertex(clip2, camera)
+        };
+    }
+
+    drawProjectedTriangleByZBuffer(renderer, targetTriangle, color, zBuffer);
 }
 
 

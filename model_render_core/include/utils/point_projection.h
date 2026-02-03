@@ -12,10 +12,17 @@ namespace internal
 
 template <typename NumericT>
 struct ProjectedVertex {
-        sc::utils::Vec<NumericT, 2> pixel; // screen space coordinates
-        NumericT invW;                     // 1/W (for z interpolation)
-        NumericT depth;                    // Z_view
-    };
+    sc::utils::Vec<NumericT, 2> pixel; // screen space coordinates
+    NumericT invW;                     // 1/W (for z interpolation)
+    NumericT depth;                    // Z_view
+};
+
+template <typename NumericT>
+struct ClipVertex {
+    sc::utils::Vec<NumericT, 4> clip;
+    NumericT invW;
+};
+
 } // namespace internal
 
 template <typename NumericT>
@@ -96,17 +103,24 @@ sc::utils::Mat<NumericT, 4, 4> getProjectionMatrix(const sc::Camera<NumericT, sc
 }
 
 template <typename NumericT>
-internal::ProjectedVertex<NumericT> projectVertex(
+internal::ClipVertex<NumericT> wsToClip(
     const sc::utils::Vec<NumericT, 3>& ws,
-    const sc::utils::Mat<NumericT, 4, 4>& viewProj,
-    const sc::Camera<NumericT, sc::VecArray>& cam)
+    const sc::utils::Mat<NumericT, 4, 4>& viewProj)
 {
     auto clip = viewProj * sc::utils::Vec<NumericT, 4>{ws[0], ws[1], ws[2], 1.0f};
     NumericT invW = 1.0f / clip[3];
+    return {clip, invW};
+}
+
+template <typename NumericT>
+internal::ProjectedVertex<NumericT> clipToProjectedVertex(
+    const internal::ClipVertex<NumericT>& clip,
+    const sc::Camera<NumericT, sc::VecArray>& cam)
+{
     sc::utils::Vec<NumericT, 3> ndc {
-        clip[0] * invW,
-        clip[1] * invW,
-        clip[2] * invW
+        clip.clip[0] * clip.invW,
+        clip.clip[1] * clip.invW,
+        clip.clip[2] * clip.invW
     };
 
     sc::utils::Vec<NumericT, 2> pixel {
@@ -114,7 +128,16 @@ internal::ProjectedVertex<NumericT> projectVertex(
         (1.0f - ndc[1]) * 0.5f * cam.res()[1]
     };
 
-    return {pixel, invW, clip[2]}; // clip[2] is a depth
+    return {pixel, clip.invW, ndc[2]}; // clip[2] is a depth
+}
+
+template <typename NumericT>
+internal::ProjectedVertex<NumericT> projectVertex(
+    const sc::utils::Vec<NumericT, 3>& ws,
+    const sc::utils::Mat<NumericT, 4, 4>& viewProj,
+    const sc::Camera<NumericT, sc::VecArray>& cam)
+{
+    return clipToProjectedVertex(wsToClip(ws, viewProj), cam);
 }
 
 } // namespace mrc

@@ -3,7 +3,6 @@
 #include "entry_point.h"
 #include "utils/vec.h"
 #include "camera/camera.h"
-#include "point_projection.h"
 
 struct Snapshot
 {

@@ -2,9 +2,9 @@
 
 #include "entry_point.h"
 #include "model.h"
-#include "point_projection.h"
+#include "utils/point_projection.h"
 #include "utils/graphics_tools.h"
-#include "compute_normals.h"
+#include "utils/compute_normals.h"
 #include "utils/vertices_transform.h"
 
 namespace mrc {
@@ -22,7 +22,6 @@ void renderSingleFrame(const std::vector<Model<NumericT>>& models,
     for (const auto& model : models) {
         std::vector<sc::utils::Vec<NumericT, 3>> transformedVerticies =
             internal::transformVerticies(model.verticies(), model.pos(), model.rot());
-
         for (std::size_t f = 0; f < model.faces().size(); ++f) {
             auto normal = mrc::getFaceNormal(model, f);
             float col = sc::utils::getCos(normal, sc::utils::Vec<float, 3>{1., 0, 0});

@@ -2,13 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 
 project(model_render_core LANGUAGES CXX)
 
-add_library(model_render_core INTERFACE
-        include/utils/graphics_tools.h
-        include/model.h
-        include/compute_normals.h
-        include/main_pipeline.h
-        include/utils/vertices_transform.h
-)
+add_library(model_render_core INTERFACE)
 
 target_include_directories(model_render_core
         INTERFACE
