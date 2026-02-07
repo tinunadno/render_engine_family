@@ -2,8 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 
 project(shader_core LANGUAGES CXX)
 
-add_library(shader_core INTERFACE
-        ../model_render_core_example/main.cpp)
+add_library(shader_core INTERFACE)
 
 target_include_directories(shader_core
         INTERFACE

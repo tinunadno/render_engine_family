@@ -3,6 +3,10 @@
 #include <GLFW/glfw3.h>
 #include <vector>
 #include <cassert>
+#include <functional>
+#include <unordered_map>
+#include <utility>
+#include <stdexcept>
 
 #include "utils/vec.h"
 
@@ -13,6 +17,8 @@ class GLFWRenderer
 {
     using KeyHandler = std::function<void()>;
     using MouseMoveHandler = std::function<void(double dx, double dy)>;
+
+    static inline int _glfwRefCount = 0;
 
 public:
     GLFWRenderer(int renderResX,
@@ -25,8 +31,14 @@ public:
         , _windowHeight(windowRes[1])
         , _buffer(renderResX * renderResY * 3, 0)
     {
-        if (!glfwInit())
-            throw std::runtime_error("GLFW init failed");
+        if (_glfwRefCount++ == 0)
+        {
+            if (!glfwInit())
+            {
+                --_glfwRefCount;
+                throw std::runtime_error("GLFW init failed");
+            }
+        }
 
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_ANY_PROFILE);
         glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
@@ -34,7 +46,8 @@ public:
         _window = glfwCreateWindow(_windowWidth, _windowHeight, title, nullptr, nullptr);
         if (!_window)
         {
-            glfwTerminate();
+            if (--_glfwRefCount == 0)
+                glfwTerminate();
             throw std::runtime_error("GLFW window creation failed");
         }
 
@@ -71,15 +84,48 @@ public:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
     }
 
+    GLFWRenderer(GLFWRenderer&& other) noexcept
+        : _keyHandlers(std::move(other._keyHandlers))
+        , _renderWidth(other._renderWidth)
+        , _renderHeight(other._renderHeight)
+        , _windowWidth(other._windowWidth)
+        , _windowHeight(other._windowHeight)
+        , _buffer(std::move(other._buffer))
+        , _window(std::exchange(other._window, nullptr))
+        , _textureId(std::exchange(other._textureId, 0))
+        , _mouseMoveHandler(std::move(other._mouseMoveHandler))
+        , _lastMouseX(other._lastMouseX)
+        , _lastMouseY(other._lastMouseY)
+        , _firstMouse(other._firstMouse)
+        , _mouseCaptured(other._mouseCaptured)
+    {
+        ++_glfwRefCount;
+        if (_window)
+            glfwSetWindowUserPointer(_window, this);
+    }
+
+    GLFWRenderer(const GLFWRenderer&) = delete;
+    GLFWRenderer& operator=(const GLFWRenderer&) = delete;
+    GLFWRenderer& operator=(GLFWRenderer&&) = delete;
+
     ~GLFWRenderer()
     {
-        if (_textureId)
-            glDeleteTextures(1, &_textureId);
-
         if (_window)
+        {
+            glfwMakeContextCurrent(_window);
+            if (_textureId)
+                glDeleteTextures(1, &_textureId);
             glfwDestroyWindow(_window);
+        }
 
-        glfwTerminate();
+        if (--_glfwRefCount == 0)
+            glfwTerminate();
+    }
+
+    void makeContextCurrent()
+    {
+        if (_window)
+            glfwMakeContextCurrent(_window);
     }
 
     void setPixel(std::size_t x,
@@ -99,10 +145,13 @@ public:
             static_cast<unsigned char>(std::clamp(color[2], 0.f, 1.f) * 255.f);
     }
 
-    void show() const
+    /// @brief Upload CPU buffer to GL texture and swap. Calls makeContextCurrent() internally.
+    void present()
     {
         if (!_window)
             return;
+
+        glfwMakeContextCurrent(_window);
 
         glClear(GL_COLOR_BUFFER_BIT);
 
@@ -130,6 +179,12 @@ public:
         glEnd();
 
         glfwSwapBuffers(_window);
+    }
+
+    /// @brief Backward-compat: present + pollEvents (single-window path).
+    void show()
+    {
+        present();
         glfwPollEvents();
     }
 

@@ -1,9 +1,6 @@
 #pragma once
 
-#include "camera/camera.h"
-#include "render.h"
-#include "glfw_render.h"
-#include "camera/camera_view_iterator.h"
+#include "window.h"
 
 #include <chrono>
 #include <thread>
@@ -14,9 +11,6 @@
 
 namespace sc
 {
-
-template<typename T, std::size_t N>
-using VecArray = utils::Vec<T, N>;
 
 namespace renderInternal {
 

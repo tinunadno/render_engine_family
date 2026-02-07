@@ -7,6 +7,8 @@
 #include "utils/compute_normals.h"
 #include "utils/vertices_transform.h"
 
+#include <memory>
+
 namespace mrc {
 
 namespace internal
@@ -122,6 +124,71 @@ void initMrcRender(sc::Camera<NumericT, sc::VecArray>& camera,
     };
 
     sc::initPerFrameRender(camera, ff, {}, keyHandlers, mouseHandler, windowResolution, targetFrameRateMs);
+}
+
+template<typename NumericT,
+    typename EachFrameModelUpdate = decltype([](std::size_t, std::size_t){ }),
+    typename CustomDrawer =
+        decltype([](std::size_t, std::size_t, sc::GLFWRenderer&, const sc::utils::Mat<NumericT, 4, 4>&,
+            const std::vector<std::vector<NumericT>>&){ })>
+auto makeMrcWindow(sc::Camera<NumericT, sc::VecArray>& camera,
+                   const std::vector<Model<NumericT>>& models,
+                   EachFrameModelUpdate efmu = { },
+                   CustomDrawer cd = { },
+                   const std::vector<std::pair<int, std::function<void()>>>& customKeyHandlers = {},
+                   sc::utils::Vec<int, 2> windowResolution = sc::utils::Vec<int, 2>{-1, -1},
+                   unsigned int targetFrameRateMs = 60,
+                   const char* title = "Model Renderer")
+{
+    using Mat4 = sc::utils::Mat<NumericT, 4, 4>;
+
+    // z-buffer lives on the heap so it survives the factory call
+    auto zBuffer = std::make_shared<std::vector<std::vector<NumericT>>>(
+        static_cast<std::size_t>(camera.res()[1]),
+        std::vector<NumericT>(
+            static_cast<std::size_t>(camera.res()[0]),
+            std::numeric_limits<NumericT>::max()
+        )
+    );
+
+    auto ff = [&models, &camera, zBuffer,
+               efmu = std::move(efmu), cd = std::move(cd)](
+        sc::GLFWRenderer& renderer, std::size_t frame, std::size_t time) mutable
+    {
+        for (auto& buf : *zBuffer)
+            std::fill(buf.begin(), buf.end(), std::numeric_limits<NumericT>::max());
+
+        Mat4 view = getViewMatrix(camera);
+        Mat4 proj = getProjectionMatrix(camera);
+        auto viewProj = proj * view;
+
+        efmu(frame, time);
+        internal::renderSingleFrame(models, camera, *zBuffer, renderer, viewProj);
+        cd(frame, time, renderer, viewProj, *zBuffer);
+    };
+
+    constexpr NumericT stepSize = .5;
+    constexpr NumericT rotSize = 1. / 100.;
+
+    std::vector<std::pair<int, std::function<void()>>> keyHandlers = {
+        {GLFW_KEY_W, [&camera](){ internal::handleCameraMovement(2, NumericT(stepSize), camera); }},
+        {GLFW_KEY_A, [&camera](){ internal::handleCameraMovement(0, NumericT(-stepSize), camera); }},
+        {GLFW_KEY_S, [&camera](){ internal::handleCameraMovement(2, NumericT(-stepSize), camera); }},
+        {GLFW_KEY_D, [&camera](){ internal::handleCameraMovement(0, NumericT(stepSize), camera); }},
+        {GLFW_KEY_LEFT_SHIFT, [&camera](){ internal::handleCameraMovement(1, NumericT(stepSize), camera); }},
+        {GLFW_KEY_LEFT_CONTROL, [&camera](){ internal::handleCameraMovement(1, NumericT(-stepSize), camera); }},
+    };
+
+    keyHandlers.insert(keyHandlers.end(), customKeyHandlers.begin(), customKeyHandlers.end());
+
+    auto mouseHandler = [&camera](double dx, double dy) {
+      camera.rot()[0] -= dy * rotSize;
+      camera.rot()[1] += dx * rotSize;
+    };
+
+    return sc::makePerFrameWindow(camera, std::move(ff),
+        [](std::size_t, std::size_t){},
+        keyHandlers, mouseHandler, windowResolution, targetFrameRateMs, title);
 }
 
 } // namespace mrc
