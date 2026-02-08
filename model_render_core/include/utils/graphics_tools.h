@@ -200,13 +200,21 @@ void drawProjectedTriangleByZBuffer(
     {
         for (int x = minX; x <= maxX; ++x)
         {
-            sc::utils::Vec<NumericT, 2> p{NumericT(x) + 0.5f, NumericT(y) + 0.5f };
-            NumericT w0 = edgeFunction(v1, v2, p) * invArea;
-            NumericT w1 = edgeFunction(v2, v0, p) * invArea;
-            NumericT w2 = edgeFunction(v0, v1, p) * invArea;
-            if ((area > 0 && w0 >= 0 && w1 >= 0 && w2 >= 0) ||
-                (area < 0 && w0 <= 0 && w1 <= 0 && w2 <= 0))
+            sc::utils::Vec<NumericT, 2> p{NumericT(x) + 0.5f, NumericT(y) + 0.5f};
+
+            // Raw edge values for the inside/outside test (sign depends on winding)
+            NumericT e0 = edgeFunction(v1, v2, p);
+            NumericT e1 = edgeFunction(v2, v0, p);
+            NumericT e2 = edgeFunction(v0, v1, p);
+
+            if ((area > 0 && e0 >= 0 && e1 >= 0 && e2 >= 0) ||
+                (area < 0 && e0 <= 0 && e1 <= 0 && e2 <= 0))
             {
+                // Barycentric coords (always positive for interior points)
+                NumericT w0 = e0 * invArea;
+                NumericT w1 = e1 * invArea;
+                NumericT w2 = e2 * invArea;
+
                 NumericT baryInvW =
                     w0 * pv0.invW +
                     w1 * pv1.invW +
@@ -229,12 +237,13 @@ bool triangleTriviallyClipped(
     const internal::ClipVertex<NumericT>& v1,
     const internal::ClipVertex<NumericT>& v2
 ) {
-    auto outsideLeft = [](const auto& v) { return v.clip[0] < -v.clip[3]; };
-    auto outsideRight = [](const auto& v) { return v.clip[0] > v.clip[3]; };
-    auto outsideBottom = [](const auto& v) { return v.clip[1] < -v.clip[3]; };
-    auto outsideTop = [](const auto& v) { return v.clip[1] > v.clip[3]; };
-    auto outsideNear = [](const auto& v) { return v.clip[2] < -v.clip[3]; };
-    auto outsideFar = [](const auto& v) { return v.clip[2] > v.clip[3]; };
+
+    auto outsideLeft   = [](const auto& v) { return v.clip[3] > 0 && v.clip[0] < -v.clip[3]; };
+    auto outsideRight  = [](const auto& v) { return v.clip[3] > 0 && v.clip[0] >  v.clip[3]; };
+    auto outsideBottom = [](const auto& v) { return v.clip[3] > 0 && v.clip[1] < -v.clip[3]; };
+    auto outsideTop    = [](const auto& v) { return v.clip[3] > 0 && v.clip[1] >  v.clip[3]; };
+    auto outsideNear   = [](const auto& v) { return v.clip[2] < -v.clip[3]; };
+    auto outsideFar    = [](const auto& v) { return v.clip[3] > 0 && v.clip[2] >  v.clip[3]; };
 
     if (outsideLeft(v0) && outsideLeft(v1) && outsideLeft(v2)) return true;
     if (outsideRight(v0) && outsideRight(v1) && outsideRight(v2)) return true;
