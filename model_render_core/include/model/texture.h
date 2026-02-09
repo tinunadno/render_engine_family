@@ -84,7 +84,7 @@ public:
         float fty = static_cast<float>(ty);
 
         return c00 * (1.f - ftx) * (1.f - fty) + c10 * ftx * (1.f - fty)
-             + c01 * (1.f - ftx) * fty          + c11 * ftx * fty;
+             + c01 * (1.f - ftx) * fty + c11 * ftx * fty;
     }
 
     [[nodiscard]] std::size_t width()  const { return _width;  }

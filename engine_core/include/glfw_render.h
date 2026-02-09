@@ -4,17 +4,33 @@
 #include <vector>
 #include <cassert>
 #include <functional>
+#include <iostream>
 #include <unordered_map>
 #include <utility>
 #include <stdexcept>
+#include <unordered_set>
 
 #include "utils/vec.h"
 
 namespace sc
 {
+namespace internal
+{
+struct KeyComboHash
+{
+    size_t operator()(const std::vector<int>& combo) const
+    {
+        size_t h = 0;
+        for (int key : combo)
+            h ^= std::hash<int>()(key) + 0x9e3779b9 + (h << 6) + (h >> 2);
+        return h;
+    }
+};
+} // namespace internal
 
 class GLFWRenderer
 {
+    using KeyCombo = std::vector<int>;
     using KeyHandler = std::function<void()>;
     using MouseMoveHandler = std::function<void(double dx, double dy)>;
 
@@ -203,9 +219,14 @@ public:
         return _renderHeight;
     }
 
-    void onKey(int key, KeyHandler handler)
+    void onKey(KeyCombo key, KeyHandler handler)
     {
-        _keyHandlers[key] = std::move(handler);
+        if (key.size() == 1)
+            _keyHandlers[key[0]] = handler;
+        else {
+            std::sort(key.begin(), key.end());
+            _comboHandlers[key] = std::move(handler);
+        }
     }
 
     void onMouseMove(MouseMoveHandler handler)
@@ -231,7 +252,9 @@ public:
     }
 
 private:
+    std::unordered_map<KeyCombo, KeyHandler, internal::KeyComboHash> _comboHandlers;
     std::unordered_map<int, KeyHandler> _keyHandlers;
+
     std::size_t _renderWidth;
     std::size_t _renderHeight;
     int _windowWidth;
@@ -240,6 +263,8 @@ private:
     std::vector<unsigned char> _buffer;
     GLFWwindow* _window = nullptr;
     unsigned int _textureId = 0;
+
+    std::vector<int> _pressedKeys;
 
     MouseMoveHandler _mouseMoveHandler;
 
@@ -250,7 +275,7 @@ private:
 
     static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
     {
-        if (action != GLFW_PRESS && action != GLFW_REPEAT)
+        if (action != GLFW_PRESS && action != GLFW_REPEAT && action != GLFW_RELEASE)
             return;
 
         auto* self =
@@ -259,9 +284,28 @@ private:
         if (!self || !self->_mouseCaptured)
             return;
 
-        auto it = self->_keyHandlers.find(key);
-        if (it != self->_keyHandlers.end())
-            it->second();
+        if (action == GLFW_RELEASE) {
+            self->_pressedKeys.erase(
+                std::remove(
+                    self->_pressedKeys.begin(),
+                    self->_pressedKeys.end(),
+                    key
+                ),
+                self->_pressedKeys.end()
+            );
+        } if (action == GLFW_PRESS)
+            self->_pressedKeys.push_back(key);
+
+        std::sort(self->_pressedKeys.begin(), self->_pressedKeys.end());
+        auto itCombo = self->_comboHandlers.find(self->_pressedKeys);
+        if (itCombo == self->_comboHandlers.end()) {
+            if (action == GLFW_RELEASE) return;
+            auto itKey = self->_keyHandlers.find(key);
+            if (itKey == self->_keyHandlers.end()) return;
+            itKey->second();
+            return;
+        }
+        itCombo->second();
     }
     static void mouseMoveCallback(GLFWwindow* window,
                               double xpos,
@@ -309,7 +353,7 @@ private:
         if (self->_mouseCaptured)
         {
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-            self->_firstMouse = true; // чтобы не было скачка
+            self->_firstMouse = true;
         }
         else
         {

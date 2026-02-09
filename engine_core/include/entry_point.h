@@ -54,7 +54,7 @@ void initRender(
     const Camera<NumericT, VecArray>& camera,
     RenderFunction rf,
     EachFrameUpdate efu = { },
-    const std::vector<std::pair<int, std::function<void()>>>& keyHandlers = { },
+    const std::vector<std::pair<std::vector<int>, std::function<void()>>>& keyHandlers = { },
     const std::function<void(double, double)>& mouseHandler = { },
     utils::Vec<int, 2> windowResolution = utils::Vec<int, 2>{-1, -1},
     unsigned int targetFrameRateMs = 60)
@@ -93,7 +93,7 @@ void initPerFrameRender(
     const Camera<NumericT, VecArray>& camera,
     FrameFunction ff,
     EachFrameUpdate efu = { },
-    const std::vector<std::pair<int, std::function<void()>>>& keyHandlers = { },
+    const std::vector<std::pair<std::vector<int>, std::function<void()>>>& keyHandlers = { },
     const std::function<void(double, double)>& mouseHandler = { },
     utils::Vec<int, 2> windowResolution = utils::Vec<int, 2>{-1, -1},
     unsigned int targetFrameRateMs = 60)
@@ -116,7 +116,7 @@ void initEachPixelRender(
     const Camera<NumericT, VecArray>& camera,
     ShadeFunction sf,
     EachFrameUpdate efu = { },
-    const std::vector<std::pair<int, std::function<void()>>>& keyHandlers = { },
+    const std::vector<std::pair<std::vector<int>, std::function<void()>>>& keyHandlers = { },
     const std::function<void(double, double)>& mouseHandler = { },
     utils::Vec<int, 2> windowResolution = utils::Vec<int, 2>{-1, -1},
     unsigned int targetFrameRateMs = 60)

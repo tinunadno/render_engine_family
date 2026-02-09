@@ -4,6 +4,7 @@
 #include "model/model.h"
 #include "utils/point_projection.h"
 #include "utils/graphics_tools.h"
+#include "utils/tiled_rasterizer.h"
 #include "utils/compute_normals.h"
 #include "utils/vertices_transform.h"
 
@@ -170,6 +171,14 @@ void renderSingleFrame(const std::vector<Model<NumericT>>& models,
                        MakeShader&& makeShader,
                        SceneCache<NumericT>& sceneCache)
 {
+    using Vec3 = sc::utils::Vec<NumericT, 3>;
+    using Vec2 = sc::utils::Vec<NumericT, 2>;
+
+    const auto& cameraPos = sceneCache.camera.pos();
+
+    // Reused across models so the allocation persists.
+    std::vector<std::array<ProjectedVertex<NumericT>, 3>> projected;
+
     for (const auto& model : models)
     {
         auto shader = makeShader(model);
@@ -179,17 +188,21 @@ void renderSingleFrame(const std::vector<Model<NumericT>>& models,
         auto transformedNormals = internal::transformNormals(
             model.normals(), model.rot());
 
+        projected.clear();
+        projected.reserve(model.faces().size());
+
         for (std::size_t f = 0; f < model.faces().size(); ++f)
         {
             const auto& face = model.faces()[f];
 
             auto faceNormal = getFaceNormal(transformedVerts, face);
 
-            // Compute per-face tangent/bitangent from positions + UVs
-            using Vec3 = sc::utils::Vec<NumericT, 3>;
-            using Vec2 = sc::utils::Vec<NumericT, 2>;
-
             auto p0 = transformedVerts[face[0][0]];
+
+            Vec3 toCamera = cameraPos - p0;
+            if (sc::utils::dot(faceNormal, toCamera) <= NumericT(0))
+                continue;
+
             auto p1 = transformedVerts[face[1][0]];
             auto p2 = transformedVerts[face[2][0]];
 
@@ -217,12 +230,13 @@ void renderSingleFrame(const std::vector<Model<NumericT>>& models,
                     (edge2 * duv1[0] - edge1 * duv2[0]) * invDet);
             }
 
-            std::array<internal::ClipVertex<NumericT>, 3> clipVerts;
+            // Build clip-space vertices with attributes
+            std::array<ClipVertex<NumericT>, 3> clipVerts;
             for (int i = 0; i < 3; ++i)
             {
                 auto wsPos = transformedVerts[face[i][0]];
 
-                internal::VertexAttributes<NumericT> attr;
+                VertexAttributes<NumericT> attr;
                 attr.worldPos  = wsPos;
                 attr.tangent   = faceTangent;
                 attr.bitangent = faceBitangent;
@@ -238,8 +252,14 @@ void renderSingleFrame(const std::vector<Model<NumericT>>& models,
                 clipVerts[i] = wsToClip(wsPos, projView, attr);
             }
 
-            gt::processTriangle(clipVerts, shader, sceneCache);
+            // Clip against near plane and project
+            std::array<std::array<ProjectedVertex<NumericT>, 3>, 2> out;
+            std::size_t count = gt::clipAndProject(clipVerts, sceneCache.camera, out);
+            for (std::size_t t = 0; t < count; ++t)
+                projected.push_back(out[t]);
         }
+
+        gt::rasterizeTiled(projected, shader, sceneCache);
     }
 }
 
@@ -274,7 +294,7 @@ void initMrcRender(sc::Camera<NumericT, sc::VecArray>& camera,
                    const std::vector<LightSource<NumericT>>& lights,
                    EachFrameModelUpdate efmu = { },
                    CustomDrawer cd = { },
-                   const std::vector<std::pair<int, std::function<void()>>>& customKeyHandlers = {},
+                   const std::vector<std::pair<std::vector<int>, std::function<void()>>>& customKeyHandlers = {},
                    sc::utils::Vec<int, 2> windowResolution = sc::utils::Vec<int, 2>{-1, -1},
                    unsigned int targetFrameRateMs = 60,
                    MakeShader makeShader = { })
@@ -316,13 +336,13 @@ void initMrcRender(sc::Camera<NumericT, sc::VecArray>& camera,
     constexpr NumericT stepSize = .5;
     constexpr NumericT rotSize = 1. / 100.;
 
-    std::vector<std::pair<int, std::function<void()>>> keyHandlers = {
-        {GLFW_KEY_W, [&camera](){ internal::handleCameraMovement(2, NumericT(stepSize), camera); }},
-        {GLFW_KEY_A, [&camera](){ internal::handleCameraMovement(0, NumericT(-stepSize), camera); }},
-        {GLFW_KEY_S, [&camera](){ internal::handleCameraMovement(2, NumericT(-stepSize), camera); }},
-        {GLFW_KEY_D, [&camera](){ internal::handleCameraMovement(0, NumericT(stepSize), camera); }},
-        {GLFW_KEY_LEFT_SHIFT, [&camera](){ internal::handleCameraMovement(1, NumericT(stepSize), camera); }},
-        {GLFW_KEY_LEFT_CONTROL, [&camera](){ internal::handleCameraMovement(1, NumericT(-stepSize), camera); }},
+    std::vector<std::pair<std::vector<int>, std::function<void()>>> keyHandlers = {
+        {{GLFW_KEY_W}, [&camera](){ internal::handleCameraMovement(2, NumericT(stepSize), camera); }},
+        {{GLFW_KEY_A}, [&camera](){ internal::handleCameraMovement(0, NumericT(-stepSize), camera); }},
+        {{GLFW_KEY_S}, [&camera](){ internal::handleCameraMovement(2, NumericT(-stepSize), camera); }},
+        {{GLFW_KEY_D}, [&camera](){ internal::handleCameraMovement(0, NumericT(stepSize), camera); }},
+        {{GLFW_KEY_LEFT_SHIFT}, [&camera](){ internal::handleCameraMovement(1, NumericT(stepSize), camera); }},
+        {{GLFW_KEY_LEFT_CONTROL}, [&camera](){ internal::handleCameraMovement(1, NumericT(-stepSize), camera); }},
     };
 
     keyHandlers.insert(keyHandlers.end(), customKeyHandlers.begin(), customKeyHandlers.end());
@@ -347,7 +367,7 @@ auto makeMrcWindow(sc::Camera<NumericT, sc::VecArray>& camera,
                    const std::vector<LightSource<NumericT>>& lights,
                    EachFrameModelUpdate efmu = { },
                    CustomDrawer cd = { },
-                   const std::vector<std::pair<int, std::function<void()>>>& customKeyHandlers = {},
+                   const std::vector<std::pair<std::vector<int>, std::function<void()>>>& customKeyHandlers = {},
                    sc::utils::Vec<int, 2> windowResolution = sc::utils::Vec<int, 2>{-1, -1},
                    unsigned int targetFrameRateMs = 60,
                    const char* title = "Model Renderer",
@@ -391,13 +411,13 @@ auto makeMrcWindow(sc::Camera<NumericT, sc::VecArray>& camera,
     constexpr NumericT stepSize = .5;
     constexpr NumericT rotSize = 1. / 100.;
 
-    std::vector<std::pair<int, std::function<void()>>> keyHandlers = {
-        {GLFW_KEY_W, [&camera](){ internal::handleCameraMovement(2, NumericT(stepSize), camera); }},
-        {GLFW_KEY_A, [&camera](){ internal::handleCameraMovement(0, NumericT(-stepSize), camera); }},
-        {GLFW_KEY_S, [&camera](){ internal::handleCameraMovement(2, NumericT(-stepSize), camera); }},
-        {GLFW_KEY_D, [&camera](){ internal::handleCameraMovement(0, NumericT(stepSize), camera); }},
-        {GLFW_KEY_LEFT_SHIFT, [&camera](){ internal::handleCameraMovement(1, NumericT(stepSize), camera); }},
-        {GLFW_KEY_LEFT_CONTROL, [&camera](){ internal::handleCameraMovement(1, NumericT(-stepSize), camera); }},
+    std::vector<std::pair<std::vector<int>, std::function<void()>>> keyHandlers = {
+        {{GLFW_KEY_W}, [&camera](){ internal::handleCameraMovement(2, NumericT(stepSize), camera); }},
+        {{GLFW_KEY_A}, [&camera](){ internal::handleCameraMovement(0, NumericT(-stepSize), camera); }},
+        {{GLFW_KEY_S}, [&camera](){ internal::handleCameraMovement(2, NumericT(-stepSize), camera); }},
+        {{GLFW_KEY_D}, [&camera](){ internal::handleCameraMovement(0, NumericT(stepSize), camera); }},
+        {{GLFW_KEY_LEFT_SHIFT}, [&camera](){ internal::handleCameraMovement(1, NumericT(stepSize), camera); }},
+        {{GLFW_KEY_LEFT_CONTROL}, [&camera](){ internal::handleCameraMovement(1, NumericT(-stepSize), camera); }},
     };
 
     keyHandlers.insert(keyHandlers.end(), customKeyHandlers.begin(), customKeyHandlers.end());

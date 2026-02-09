@@ -83,7 +83,7 @@ GLFWRenderer makeRenderer(
     const Camera<NumericT, VecArray>& camera,
     utils::Vec<int, 2> windowResolution,
     const char* title,
-    const std::vector<std::pair<int, std::function<void()>>>& keyHandlers,
+    const std::vector<std::pair<std::vector<int>, std::function<void()>>>& keyHandlers,
     const std::function<void(double, double)>& mouseHandler)
 {
     utils::Vec<int, 2> windowRes(windowResolution);
@@ -118,7 +118,7 @@ auto makePerFrameWindow(
     const Camera<NumericT, VecArray>& camera,
     FrameFunc ff,
     EachFrameUpdate efu = { },
-    const std::vector<std::pair<int, std::function<void()>>>& keyHandlers = { },
+    const std::vector<std::pair<std::vector<int>, std::function<void()>>>& keyHandlers = { },
     const std::function<void(double, double)>& mouseHandler = { },
     utils::Vec<int, 2> windowResolution = utils::Vec<int, 2>{-1, -1},
     unsigned int targetFrameRateMs = 60,
@@ -146,7 +146,7 @@ auto makeEachPixelWindow(
     const Camera<NumericT, VecArray>& camera,
     ShadeFunc sf,
     EachFrameUpdate efu = { },
-    const std::vector<std::pair<int, std::function<void()>>>& keyHandlers = { },
+    const std::vector<std::pair<std::vector<int>, std::function<void()>>>& keyHandlers = { },
     const std::function<void(double, double)>& mouseHandler = { },
     utils::Vec<int, 2> windowResolution = utils::Vec<int, 2>{-1, -1},
     unsigned int targetFrameRateMs = 60,

@@ -14,9 +14,6 @@ struct Model
     ModelGeometry<NumericT> geometry;
     Material<NumericT> material;
 
-
-
-
     const std::vector<sc::utils::Vec<NumericT, 3>>& verticies() const { return geometry.verticies(); }
     std::vector<sc::utils::Vec<NumericT, 3>>& verticies() { return geometry.verticies(); }
 
