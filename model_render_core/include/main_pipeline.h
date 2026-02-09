@@ -408,7 +408,7 @@ auto makeMrcWindow(sc::Camera<NumericT, sc::VecArray>& camera,
         cd(frame, time, renderer, viewProj, *zBuffer);
     };
 
-    constexpr NumericT stepSize = .5;
+    constexpr NumericT stepSize = .05;
     constexpr NumericT rotSize = 1. / 100.;
 
     std::vector<std::pair<std::vector<int>, std::function<void()>>> keyHandlers = {

@@ -195,6 +195,8 @@ public:
         glEnd();
 
         glfwSwapBuffers(_window);
+
+        handleSinglePressedKeys();
     }
 
     /// @brief Backward-compat: present + pollEvents (single-window path).
@@ -273,9 +275,17 @@ private:
     bool _firstMouse = true;
     bool _mouseCaptured = false;
 
+    void handleSinglePressedKeys() {
+        for (const auto key : _pressedKeys) {
+            auto itKey = _keyHandlers.find(key);
+            if (itKey == _keyHandlers.end()) return;
+            itKey->second();
+        }
+    }
+
     static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
     {
-        if (action != GLFW_PRESS && action != GLFW_REPEAT && action != GLFW_RELEASE)
+        if (action != GLFW_PRESS && action != GLFW_RELEASE)
             return;
 
         auto* self =
@@ -293,20 +303,21 @@ private:
                 ),
                 self->_pressedKeys.end()
             );
-        } if (action == GLFW_PRESS)
+        } if (action == GLFW_PRESS) {
             self->_pressedKeys.push_back(key);
+        }
 
         std::sort(self->_pressedKeys.begin(), self->_pressedKeys.end());
+
+        for (const auto key_ : self->_pressedKeys)
+            std::cout << key_ << " ";
+        std::cout << std::endl;
+
         auto itCombo = self->_comboHandlers.find(self->_pressedKeys);
-        if (itCombo == self->_comboHandlers.end()) {
-            if (action == GLFW_RELEASE) return;
-            auto itKey = self->_keyHandlers.find(key);
-            if (itKey == self->_keyHandlers.end()) return;
-            itKey->second();
-            return;
-        }
+        if (itCombo == self->_comboHandlers.end()) return;
         itCombo->second();
     }
+
     static void mouseMoveCallback(GLFWwindow* window,
                               double xpos,
                               double ypos)
