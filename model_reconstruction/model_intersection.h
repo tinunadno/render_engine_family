@@ -1,6 +1,6 @@
 #pragma once
 
-#include "model.h"
+#include "../model_render_core/include/model/model.h"
 
 #include <manifold/manifold.h>
 #include <vector>

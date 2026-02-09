@@ -7,27 +7,66 @@
 namespace mrc
 {
 
+
+
+template<typename NumericT>
+struct FragmentInput {
+    sc::utils::Vec<NumericT, 2> uv;
+    sc::utils::Vec<NumericT, 3> normal;
+    sc::utils::Vec<NumericT, 3> worldPos;
+    NumericT depth;
+};
+
+
+
 namespace internal
 {
 
+/// Per-vertex attributes that flow through the pipeline.
+template<typename NumericT>
+struct VertexAttributes {
+    sc::utils::Vec<NumericT, 2> uv{};
+    sc::utils::Vec<NumericT, 3> normal{};
+    sc::utils::Vec<NumericT, 3> worldPos{};
+
+    VertexAttributes lerp(const VertexAttributes& o, NumericT t) const {
+        return VertexAttributes{
+            uv      + (o.uv      - uv)      * t,
+            normal  + (o.normal  - normal)   * t,
+            worldPos+ (o.worldPos- worldPos) * t
+        };
+    }
+
+    VertexAttributes operator*(NumericT s) const {
+        return VertexAttributes{uv * s, normal * s, worldPos * s};
+    }
+
+    VertexAttributes operator+(const VertexAttributes& o) const {
+        return VertexAttributes{uv + o.uv, normal + o.normal, worldPos + o.worldPos};
+    }
+};
+
 template <typename NumericT>
 struct ProjectedVertex {
-    sc::utils::Vec<NumericT, 2> pixel; // screen space coordinates
-    NumericT invW;                     // 1/W (for z interpolation)
-    NumericT depth;                    // Z_view
+    sc::utils::Vec<NumericT, 2> pixel;
+    NumericT invW;
+    NumericT depth;
+    VertexAttributes<NumericT> attr;
 };
 
 template <typename NumericT>
 struct ClipVertex {
     sc::utils::Vec<NumericT, 4> clip;
     NumericT invW;
+    VertexAttributes<NumericT> attr;
 };
 
 } // namespace internal
 
+
+
 template <typename NumericT>
 sc::utils::Vec<NumericT, 3> worldUp{0, 1, 0};
-
 
 template<typename NumericT>
 sc::utils::Vec<NumericT, 3> getForward(const sc::utils::Vec<NumericT, 3>& rotation)
@@ -39,8 +78,7 @@ sc::utils::Vec<NumericT, 3> getForward(const sc::utils::Vec<NumericT, 3>& rotati
     const NumericT sx = std::sin(pitch);
     const NumericT cy = std::cos(yaw);
     const NumericT sy = std::sin(yaw);
-    return sc::utils::norm(sc::utils::Vec<NumericT, 3>
-    {
+    return sc::utils::norm(sc::utils::Vec<NumericT, 3>{
         cx * sy,
         sx,
        -cx * cy
@@ -59,6 +97,8 @@ sc::utils::Vec<NumericT, 3> getUp(const sc::utils::Vec<NumericT, 3>& forward,
 {
     return sc::utils::cross(right, forward);
 }
+
+
 
 template <typename NumericT>
 sc::utils::Mat<NumericT, 4, 4>
@@ -102,14 +142,17 @@ sc::utils::Mat<NumericT, 4, 4> getProjectionMatrix(const sc::Camera<NumericT, sc
     return Proj;
 }
 
+
+
 template <typename NumericT>
 internal::ClipVertex<NumericT> wsToClip(
     const sc::utils::Vec<NumericT, 3>& ws,
-    const sc::utils::Mat<NumericT, 4, 4>& viewProj)
+    const sc::utils::Mat<NumericT, 4, 4>& viewProj,
+    const internal::VertexAttributes<NumericT>& attr = {})
 {
-    auto clip = viewProj * sc::utils::Vec<NumericT, 4>{ws[0], ws[1], ws[2], 1.0f};
-    NumericT invW = 1.0f / clip[3];
-    return {clip, invW};
+    auto clip = viewProj * sc::utils::Vec<NumericT, 4>{ws[0], ws[1], ws[2], NumericT(1)};
+    NumericT invW = NumericT(1) / clip[3];
+    return {clip, invW, attr};
 }
 
 template <typename NumericT>
@@ -124,11 +167,11 @@ internal::ProjectedVertex<NumericT> clipToProjectedVertex(
     };
 
     sc::utils::Vec<NumericT, 2> pixel {
-        (ndc[0] + 1.0f) * 0.5f * cam.res()[0],
-        (1.0f - ndc[1]) * 0.5f * cam.res()[1]
+        (ndc[0] + NumericT(1)) * NumericT(0.5) * cam.res()[0],
+        (NumericT(1) - ndc[1]) * NumericT(0.5) * cam.res()[1]
     };
 
-    return {pixel, clip.invW, ndc[2]}; // clip[2] is a depth
+    return {pixel, clip.invW, ndc[2], clip.attr};
 }
 
 template <typename NumericT>

@@ -5,6 +5,8 @@
 namespace mrc::gt
 {
 
+
+
 template<typename NumericT>
 void drawLine(
     sc::GLFWRenderer& renderer,
@@ -28,8 +30,8 @@ void drawLine(
     while (true)
     {
         if (x0 >= 0 && y0 >= 0 &&
-            x0 < renderer.getRenderWidth() &&
-            y0 < renderer.getRenderHeight())
+            x0 < static_cast<int>(renderer.getRenderWidth()) &&
+            y0 < static_cast<int>(renderer.getRenderHeight()))
         {
             renderer.setPixel(x0, y0, color);
         }
@@ -39,17 +41,8 @@ void drawLine(
 
         const int e2 = err << 1;
 
-        if (e2 > -dy)
-        {
-            err -= dy;
-            x0 += sx;
-        }
-
-        if (e2 < dx)
-        {
-            err += dx;
-            y0 += sy;
-        }
+        if (e2 > -dy) { err -= dy; x0 += sx; }
+        if (e2 <  dx) { err += dx; y0 += sy; }
     }
 }
 
@@ -63,6 +56,8 @@ NumericT edgeFunction(
            (p[1] - a[1]) * (b[0] - a[0]);
 }
 
+
+
 template<typename NumericT>
 void drawTriangle(
     sc::GLFWRenderer& renderer,
@@ -72,16 +67,16 @@ void drawTriangle(
     const sc::utils::Vec<NumericT, 3>& color)
 {
     int tmp = std::min({v0[0], v1[0], v2[0]});
-    const int minX = std::max(0,tmp);
+    const int minX = std::max(0, tmp);
 
     tmp = std::max({v0[0], v1[0], v2[0]});
     const int maxX = std::min(static_cast<int>(renderer.getRenderWidth()) - 1, tmp);
 
     tmp = std::min({v0[1], v1[1], v2[1]});
-    const int minY = std::max(0,tmp);
+    const int minY = std::max(0, tmp);
 
     tmp = std::max({v0[1], v1[1], v2[1]});
-    const int maxY = std::min( static_cast<int>(renderer.getRenderHeight()) - 1, tmp);
+    const int maxY = std::min(static_cast<int>(renderer.getRenderHeight()) - 1, tmp);
 
     const int area = edgeFunction(v0, v1, v2);
     if (area == 0)
@@ -91,7 +86,8 @@ void drawTriangle(
     {
         for (int x = minX; x <= maxX; ++x)
         {
-            sc::utils::Vec<NumericT, 2> p{x, y};
+            sc::utils::Vec<NumericT, 2> p{static_cast<NumericT>(x),
+                                           static_cast<NumericT>(y)};
 
             int w0 = edgeFunction(v1, v2, p);
             int w1 = edgeFunction(v2, v0, p);
@@ -106,8 +102,10 @@ void drawTriangle(
     }
 }
 
-/// \brief findClipCross finds point such as p.z = -p.w, eg point,
-/// that crosses screen space border in clip space coordinates
+
+
+
+
 template<typename NumericT>
 internal::ClipVertex<NumericT> findClipCross(
     const internal::ClipVertex<NumericT>& a,
@@ -120,11 +118,11 @@ internal::ClipVertex<NumericT> findClipCross(
     internal::ClipVertex<NumericT> r;
     r.clip = a.clip + (b.clip - a.clip) * t;
     r.invW = NumericT(1) / r.clip[3];
+    r.attr = a.attr.lerp(b.attr, t);
     return r;
 }
 
-/// \brief handleTwoClipOut takes three clip coordinates, two of them not visible
-/// returns proper triangle complete in screen space
+
 template<typename NumericT>
 std::array<internal::ProjectedVertex<NumericT>, 3> handleTwoClipOut(
     const internal::ClipVertex<NumericT>& out1,
@@ -139,7 +137,7 @@ std::array<internal::ProjectedVertex<NumericT>, 3> handleTwoClipOut(
     };
 }
 
-/// \brief splits triangle with one of vertices out of ss into two triangles in screen space
+
 template<typename NumericT>
 std::pair<std::array<internal::ProjectedVertex<NumericT>, 3>,
     std::array<internal::ProjectedVertex<NumericT>, 3>> handleOneClipOut(
@@ -164,80 +162,11 @@ std::pair<std::array<internal::ProjectedVertex<NumericT>, 3>,
 }
 
 template<typename NumericT>
-void drawProjectedTriangleByZBuffer(
-    sc::GLFWRenderer& renderer,
-    const std::array<internal::ProjectedVertex<NumericT>, 3>& projectedPoly,
-    const sc::utils::Vec<NumericT, 3>& color,
-    std::vector<std::vector<NumericT>>& zBuffer
-)
-{
-    const auto& pv0 = projectedPoly[0];
-    const auto& pv1 = projectedPoly[1];
-    const auto& pv2 = projectedPoly[2];
-
-    const sc::utils::Vec<NumericT, 2>& v0 = pv0.pixel;
-    const sc::utils::Vec<NumericT, 2>& v1 = pv1.pixel;
-    const sc::utils::Vec<NumericT, 2>& v2 = pv2.pixel;
-
-    int tmp = std::min({v0[0], v1[0], v2[0]});
-    const int minX = std::max(0,tmp);
-
-    tmp = std::max({v0[0], v1[0], v2[0]});
-    const int maxX = std::min(static_cast<int>(renderer.getRenderWidth()) - 1, tmp);
-
-    tmp = std::min({v0[1], v1[1], v2[1]});
-    const int minY = std::max(0,tmp);
-
-    tmp = std::max({v0[1], v1[1], v2[1]});
-    const int maxY = std::min( static_cast<int>(renderer.getRenderHeight()) - 1, tmp);
-
-    const NumericT area = edgeFunction(v0, v1, v2);
-    if (area == 0)
-        return;
-    NumericT invArea = NumericT(1.0) / area;
-
-    for (int y = minY; y <= maxY; ++y)
-    {
-        for (int x = minX; x <= maxX; ++x)
-        {
-            sc::utils::Vec<NumericT, 2> p{NumericT(x) + 0.5f, NumericT(y) + 0.5f};
-
-            // Raw edge values for the inside/outside test (sign depends on winding)
-            NumericT e0 = edgeFunction(v1, v2, p);
-            NumericT e1 = edgeFunction(v2, v0, p);
-            NumericT e2 = edgeFunction(v0, v1, p);
-
-            if ((area > 0 && e0 >= 0 && e1 >= 0 && e2 >= 0) ||
-                (area < 0 && e0 <= 0 && e1 <= 0 && e2 <= 0))
-            {
-                // Barycentric coords (always positive for interior points)
-                NumericT w0 = e0 * invArea;
-                NumericT w1 = e1 * invArea;
-                NumericT w2 = e2 * invArea;
-
-                NumericT baryInvW =
-                    w0 * pv0.invW +
-                    w1 * pv1.invW +
-                    w2 * pv2.invW;
-                NumericT currentZ = 1.0f / baryInvW;
-
-                if (currentZ > 0 && currentZ < zBuffer[y][x])
-                {
-                    zBuffer[y][x] = currentZ;
-                    renderer.setPixel(x, y, color);
-                }
-            }
-        }
-    }
-}
-
-template<typename NumericT>
 bool triangleTriviallyClipped(
     const internal::ClipVertex<NumericT>& v0,
     const internal::ClipVertex<NumericT>& v1,
     const internal::ClipVertex<NumericT>& v2
 ) {
-
     auto outsideLeft   = [](const auto& v) { return v.clip[3] > 0 && v.clip[0] < -v.clip[3]; };
     auto outsideRight  = [](const auto& v) { return v.clip[3] > 0 && v.clip[0] >  v.clip[3]; };
     auto outsideBottom = [](const auto& v) { return v.clip[3] > 0 && v.clip[1] < -v.clip[3]; };
@@ -255,22 +184,114 @@ bool triangleTriviallyClipped(
     return false;
 }
 
-template<typename NumericT>
-void drawTriangleByZBuffer(
+
+
+
+
+
+
+
+
+template<typename NumericT, typename FragmentShader>
+void rasterizeTriangle(
     sc::GLFWRenderer& renderer,
-    const Model<NumericT>& model,
-    const std::vector<sc::utils::Vec<NumericT, 3>>& verticies,
-    std::size_t faceIdx,
-    const sc::utils::Vec<NumericT, 3>& color,
+    const std::array<internal::ProjectedVertex<NumericT>, 3>& tri,
+    std::vector<std::vector<NumericT>>& zBuffer,
+    const FragmentShader& shader)
+{
+    const auto& v0 = tri[0].pixel;
+    const auto& v1 = tri[1].pixel;
+    const auto& v2 = tri[2].pixel;
+
+    int tmp = static_cast<int>(std::min({v0[0], v1[0], v2[0]}));
+    const int minX = std::max(0, tmp);
+
+    tmp = static_cast<int>(std::max({v0[0], v1[0], v2[0]}));
+    const int maxX = std::min(static_cast<int>(renderer.getRenderWidth()) - 1, tmp);
+
+    tmp = static_cast<int>(std::min({v0[1], v1[1], v2[1]}));
+    const int minY = std::max(0, tmp);
+
+    tmp = static_cast<int>(std::max({v0[1], v1[1], v2[1]}));
+    const int maxY = std::min(static_cast<int>(renderer.getRenderHeight()) - 1, tmp);
+
+    const NumericT area = edgeFunction(v0, v1, v2);
+    if (area == 0) return;
+    const NumericT invArea = NumericT(1) / area;
+
+    
+    const auto a0 = tri[0].attr * tri[0].invW;
+    const auto a1 = tri[1].attr * tri[1].invW;
+    const auto a2 = tri[2].attr * tri[2].invW;
+
+    for (int y = minY; y <= maxY; ++y)
+    {
+        for (int x = minX; x <= maxX; ++x)
+        {
+            sc::utils::Vec<NumericT, 2> p{NumericT(x) + NumericT(0.5),
+                                           NumericT(y) + NumericT(0.5)};
+
+            
+            NumericT e0 = edgeFunction(v1, v2, p);
+            NumericT e1 = edgeFunction(v2, v0, p);
+            NumericT e2 = edgeFunction(v0, v1, p);
+
+            if ((area > 0 && e0 >= 0 && e1 >= 0 && e2 >= 0) ||
+                (area < 0 && e0 <= 0 && e1 <= 0 && e2 <= 0))
+            {
+                
+                NumericT w0 = e0 * invArea;
+                NumericT w1 = e1 * invArea;
+                NumericT w2 = e2 * invArea;
+
+                NumericT baryInvW =
+                    w0 * tri[0].invW +
+                    w1 * tri[1].invW +
+                    w2 * tri[2].invW;
+                NumericT currentZ = NumericT(1) / baryInvW;
+
+                if (currentZ > 0 && currentZ < zBuffer[y][x])
+                {
+                    
+                    auto interpAttr = (a0 * w0 + a1 * w1 + a2 * w2) * currentZ;
+
+                    FragmentInput<NumericT> frag;
+                    frag.uv       = interpAttr.uv;
+                    frag.normal   = interpAttr.normal;
+                    frag.worldPos = interpAttr.worldPos;
+                    frag.depth    = currentZ;
+
+                    auto color = shader(frag);
+
+                    zBuffer[y][x] = currentZ;
+                    renderer.setPixel(x, y, color);
+                }
+            }
+        }
+    }
+}
+
+
+
+
+
+
+
+
+template<typename NumericT, typename FragmentShader>
+void processTriangle(
+    sc::GLFWRenderer& renderer,
+    const std::array<internal::ClipVertex<NumericT>, 3>& clipVerts,
     const sc::Camera<NumericT, sc::VecArray>& camera,
     std::vector<std::vector<NumericT>>& zBuffer,
-    const sc::utils::Mat<NumericT, 4, 4>& viewProj)
+    const FragmentShader& shader)
 {
-    const auto poly = model.getPolygon(faceIdx, verticies);
+    const auto& clip0 = clipVerts[0];
+    const auto& clip1 = clipVerts[1];
+    const auto& clip2 = clipVerts[2];
 
-    const auto clip0 = wsToClip(poly[0], viewProj);
-    const auto clip1 = wsToClip(poly[1], viewProj);
-    const auto clip2 = wsToClip(poly[2], viewProj);
+    if (triangleTriviallyClipped(clip0, clip1, clip2))
+        return;
 
     const bool clip0Out = clip0.clip[2] < -clip0.clip[3];
     const bool clip1Out = clip1.clip[2] < -clip1.clip[3];
@@ -280,8 +301,6 @@ void drawTriangleByZBuffer(
                    static_cast<int>(clip1Out) +
                    static_cast<int>(clip2Out);
 
-    if (triangleTriviallyClipped(clip0, clip1, clip2)) return;
-
     if (outCount == 1)
     {
         internal::ClipVertex<NumericT> in[2];
@@ -290,16 +309,17 @@ void drawTriangleByZBuffer(
         int inIdx = 0;
         if (!clip0Out) in[inIdx++] = clip0; else out = clip0;
         if (!clip1Out) in[inIdx++] = clip1; else out = clip1;
-        if (!clip2Out) in[inIdx] = clip2; else out = clip2;
+        if (!clip2Out) in[inIdx]   = clip2; else out = clip2;
 
-        auto targetTriangles = handleOneClipOut(in[0], in[1], out, camera);
-        drawProjectedTriangleByZBuffer(renderer, targetTriangles.first, color, zBuffer);
-        drawProjectedTriangleByZBuffer(renderer, targetTriangles.second, color, zBuffer);
+        auto [tri1, tri2] = handleOneClipOut(in[0], in[1], out, camera);
+        rasterizeTriangle(renderer, tri1, zBuffer, shader);
+        rasterizeTriangle(renderer, tri2, zBuffer, shader);
         return;
     }
 
+    
     std::array<internal::ProjectedVertex<NumericT>, 3> targetTriangle;
-    if (outCount == 2)  // two of them out of bounds
+    if (outCount == 2)
     {
         internal::ClipVertex<NumericT> out[2];
         internal::ClipVertex<NumericT> in;
@@ -307,9 +327,11 @@ void drawTriangleByZBuffer(
         int inIdx = 0;
         if (clip0Out) out[inIdx++] = clip0; else in = clip0;
         if (clip1Out) out[inIdx++] = clip1; else in = clip1;
-        if (clip2Out) out[inIdx] = clip2; else in = clip2;
+        if (clip2Out) out[inIdx]   = clip2; else in = clip2;
+
         targetTriangle = handleTwoClipOut(out[0], out[1], in, camera);
-    } else
+    }
+    else 
     {
         targetTriangle = {
             clipToProjectedVertex(clip0, camera),
@@ -318,8 +340,7 @@ void drawTriangleByZBuffer(
         };
     }
 
-    drawProjectedTriangleByZBuffer(renderer, targetTriangle, color, zBuffer);
+    rasterizeTriangle(renderer, targetTriangle, zBuffer, shader);
 }
 
-
-} // namespace mrc::gt
+} 

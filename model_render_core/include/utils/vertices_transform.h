@@ -5,6 +5,7 @@
 
 namespace mrc::internal
 {
+
 template <typename NumericT>
 std::vector<sc::utils::Vec<NumericT, 3>> transformVerticies(
     const std::vector<sc::utils::Vec<NumericT, 3>>& verticies,
@@ -19,4 +20,20 @@ std::vector<sc::utils::Vec<NumericT, 3>> transformVerticies(
     }
     return ret;
 }
+
+/// Transform normals by rotation only (no translation).
+template <typename NumericT>
+std::vector<sc::utils::Vec<NumericT, 3>> transformNormals(
+    const std::vector<sc::utils::Vec<NumericT, 3>>& normals,
+    const sc::utils::Vec<NumericT, 3>& rot)
+{
+    std::vector<sc::utils::Vec<NumericT, 3>> ret;
+    ret.reserve(normals.size());
+    for (const auto& n : normals)
+    {
+        ret.emplace_back(rotateEuler(n, rot));
+    }
+    return ret;
+}
+
 } // namespace mrc::internal

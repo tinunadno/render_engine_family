@@ -1,4 +1,5 @@
 #include "main_pipeline.h"
+#include "model/io.h"
 #include "snapshot.h"
 #include "model_intersection.h"
 
