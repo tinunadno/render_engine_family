@@ -22,7 +22,7 @@ public:
         , _rot()
         , _res(800, 600)
         , _size(.8, -.1) // second one 'gonna be scaled further according to ratio
-        , _len(.05)
+        , _len(.3)
     {
         setRatioFromRes();
     }

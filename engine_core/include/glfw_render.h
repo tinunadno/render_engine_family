@@ -253,6 +253,9 @@ public:
         }
     }
 
+    const std::vector<unsigned char>& getBuffer() { return _buffer; }
+    const unsigned char* getBufferPtr() { return _buffer.data(); }
+
 private:
     std::unordered_map<KeyCombo, KeyHandler, internal::KeyComboHash> _comboHandlers;
     std::unordered_map<int, KeyHandler> _keyHandlers;
