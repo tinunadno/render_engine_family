@@ -311,6 +311,7 @@ void renderParticles(const ParticleSystem<NumericT>& particles,
     // clip, project, collect triangles
     for (std::size_t i = 0; i < particles.count(); ++i)
     {
+        if (!particles.enableRender[i]) continue;
         const std::size_t vertBase = i * vertsPerParticle;
         const auto& col = particles.colors[i];
 

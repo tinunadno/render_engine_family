@@ -17,9 +17,10 @@ template<typename NumericT>
 struct ParticleSystem
 {
     // Per-particle data (SoA)
-    std::vector<sc::utils::Vec<NumericT, 3>> positions;   // world-space centres
-    std::vector<sc::utils::Vec<float, 3>>    colors;      // RGB [0,1]
-    std::vector<NumericT>                     sizes;       // world-space radius
+    std::vector<sc::utils::Vec<NumericT, 3>> positions;    // world-space centres
+    std::vector<sc::utils::Vec<float, 3>>    colors;       // RGB [0,1]
+    std::vector<NumericT>                    sizes;        // world-space radius
+    std::vector<bool>                        enableRender; // force disable particle render
 
     // Unit-space template vertices in [-1,1]x[-1,1].
     // At render time each vertex is transformed:
