@@ -164,6 +164,7 @@ void rasterizeTriangleInRect(
                         cache.camera.pos(),
                         attr.tangent,
                         attr.bitangent,
+                        attr.color,
                         z,
                         cache.lights
                     };

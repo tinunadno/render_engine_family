@@ -1,6 +1,5 @@
 # Blender 5.0.1
 # www.blender.org
-mtllib test.mtl
 o Cube.001
 v -0.843925 -0.649536 -0.197949
 v -0.846043 -0.639686 -0.200504

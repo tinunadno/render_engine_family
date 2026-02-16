@@ -51,14 +51,17 @@ int main()
     sc::Camera<float, sc::VecArray> camera1;
     camera1.pos()[2] = 2.0f;
     camera1.setLen(0.3);
+    camera1.setRes(sc::utils::Vec<float, 2>{600, 400});
 
     sc::Camera<float, sc::VecArray> camera2;
     camera2.pos()[2] = 2.0f;
     camera2.setLen(0.3);
+    camera2.setRes(sc::utils::Vec<float, 2>{600, 400});
 
     sc::Camera<float, sc::VecArray> camera3;
     camera3.pos()[2] = 2.0f;
     camera3.setLen(0.3);
+    camera3.setRes(sc::utils::Vec<float, 2>{600, 400});
 
     const std::string objFile = std::string(PROJECT_DIR) + "/../model_render_core_example/monke.obj";
     const std::string obj1File = std::string(PROJECT_DIR) + "/../model_render_core_example/cube.obj";
@@ -124,9 +127,11 @@ int main()
             }
             auto hull = calculateConvexHull(projectedPoints);
 
+            if (hull.size() > projectedPoints.size()) return;
+
             lastRois[i].clear();
             lastRois[i].reserve(hull.size());
-            std::ranges::transform(hull, std::back_inserter(lastRois[i]),
+            std::transform(hull.begin(), hull.end(), std::back_inserter(lastRois[i]),
                                    [&projectedPoints](std::size_t idx) {
                                        return projectedPoints[idx];
                                    });
@@ -146,7 +151,7 @@ int main()
         {{GLFW_KEY_E}, [&snapshots, &camera1, &lastRois, &snapshotsDirty]() {
             for (std::size_t i = 0; i < snapshots.size(); ++i)
             {
-                std::vector<sc::utils::Vec<float, 2>> roiCopy(lastRois[i]);
+                std::vector roiCopy(lastRois[i]);
                 snapshots[i].emplace_back(camera1, std::move(roiCopy));
             }
             snapshotsDirty = true;

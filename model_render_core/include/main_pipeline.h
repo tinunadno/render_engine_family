@@ -2,6 +2,7 @@
 
 #include "entry_point.h"
 #include "model/model.h"
+#include "particle_system.h"
 #include "utils/point_projection.h"
 #include "utils/graphics_tools.h"
 #include "utils/tiled_rasterizer.h"
@@ -17,7 +18,7 @@ namespace internal
 {
 
 template<typename NumericT>
-struct DefaultShaderFactory
+struct BlinnFongShaderFactory
 {
     auto operator()(const Model<NumericT>& model) const
     {
@@ -263,6 +264,94 @@ void renderSingleFrame(const std::vector<Model<NumericT>>& models,
     }
 }
 
+/// Render all particles from a ParticleSystem as camera-facing billboards.
+/// Shares the z-buffer with regular mesh rendering so particles and meshes
+/// occlude each other naturally.  All particles are batched into ONE
+/// rasterizeTiled call — per-particle color is carried via VertexAttributes::color.
+template<typename NumericT>
+void renderParticles(const ParticleSystem<NumericT>& particles,
+                     const sc::utils::Mat<NumericT, 4, 4>& projView,
+                     SceneCache<NumericT>& sceneCache)
+{
+    using Vec3 = sc::utils::Vec<NumericT, 3>;
+    using Vec2 = sc::utils::Vec<NumericT, 2>;
+
+    if (particles.count() == 0 || particles.billboardFaces.empty())
+        return;
+
+    // Camera basis vectors (computed once)
+    const auto forward = getForward(sceneCache.camera.rot());
+    const auto right   = getRight(forward);
+    const auto up      = getUp(forward, right);
+
+    const std::size_t vertsPerParticle = particles.billboardVerts.size();
+    const std::size_t facesPerParticle = particles.billboardFaces.size();
+
+    // Pre-allocate for all particles
+    std::vector<Vec3> worldVerts;
+    worldVerts.reserve(particles.count() * vertsPerParticle);
+
+    std::vector<std::array<ProjectedVertex<NumericT>, 3>> projected;
+    projected.reserve(particles.count() * facesPerParticle);
+
+    // transform billboard vertices to world space for all particles
+    for (std::size_t i = 0; i < particles.count(); ++i)
+    {
+        const auto& centre = particles.positions[i];
+        const NumericT sz  = particles.sizes[i];
+
+        for (std::size_t v = 0; v < vertsPerParticle; ++v)
+        {
+            const auto& bv = particles.billboardVerts[v];
+            worldVerts.push_back(
+                centre + right * (bv[0] * sz) + up * (bv[1] * sz));
+        }
+    }
+
+    // clip, project, collect triangles
+    for (std::size_t i = 0; i < particles.count(); ++i)
+    {
+        const std::size_t vertBase = i * vertsPerParticle;
+        const auto& col = particles.colors[i];
+
+        // Normal pointing towards camera (all billboard faces are front-facing)
+        Vec3 faceNormal = forward * NumericT(-1);
+
+        for (std::size_t f = 0; f < facesPerParticle; ++f)
+        {
+            const auto& face = particles.billboardFaces[f];
+
+            std::array<ClipVertex<NumericT>, 3> clipVerts;
+            for (int vi = 0; vi < 3; ++vi)
+            {
+                auto wsPos = worldVerts[vertBase + face[vi]];
+
+                VertexAttributes<NumericT> attr;
+                attr.worldPos = wsPos;
+                attr.normal   = faceNormal;
+                attr.color    = col;
+
+                clipVerts[vi] = wsToClip(wsPos, projView, attr);
+            }
+
+            std::array<std::array<ProjectedVertex<NumericT>, 3>, 2> out;
+            std::size_t count = gt::clipAndProject(clipVerts, sceneCache.camera, out);
+            for (std::size_t t = 0; t < count; ++t)
+                projected.push_back(out[t]);
+        }
+    }
+
+    // single batched rasterization with a flat-color shader
+    // that reads color from the interpolated vertex attribute.
+    auto flatShader = [](const FragmentInput<NumericT>& frag)
+        -> sc::utils::Vec<float, 3>
+    {
+        return frag.color;
+    };
+
+    gt::rasterizeTiled(projected, flatShader, sceneCache);
+}
+
 template<typename NumericT>
 void handleCameraMovement(int axis, NumericT distance,
                           sc::Camera<NumericT, sc::VecArray>& camera)
@@ -288,7 +377,7 @@ template<typename NumericT,
     typename CustomDrawer =
         decltype([](std::size_t, std::size_t, sc::GLFWRenderer&, const sc::utils::Mat<NumericT, 4, 4>&,
             const std::vector<std::vector<NumericT>>&){ }),
-    typename MakeShader = internal::DefaultShaderFactory<NumericT>>
+    typename MakeShader = internal::BlinnFongShaderFactory<NumericT>>
 void initMrcRender(sc::Camera<NumericT, sc::VecArray>& camera,
                    const std::vector<Model<NumericT>>& models,
                    const std::vector<LightSource<NumericT>>& lights,
@@ -297,7 +386,8 @@ void initMrcRender(sc::Camera<NumericT, sc::VecArray>& camera,
                    const std::vector<std::pair<std::vector<int>, std::function<void()>>>& customKeyHandlers = {},
                    sc::utils::Vec<int, 2> windowResolution = sc::utils::Vec<int, 2>{-1, -1},
                    unsigned int targetFrameRateMs = 60,
-                   MakeShader makeShader = { })
+                   MakeShader makeShader = { },
+                   const ParticleSystem<NumericT>* particles = nullptr)
 {
     using Mat4 = sc::utils::Mat<NumericT, 4, 4>;
 
@@ -317,7 +407,8 @@ void initMrcRender(sc::Camera<NumericT, sc::VecArray>& camera,
         return std::pair{view, proj};
     };
 
-    auto ff = [&efmu, &usc, &cd, &models, &camera, &zBuffer, &lights, makeShader = std::move(makeShader)](
+    auto ff = [&efmu, &usc, &cd, &models, &camera, &zBuffer, &lights,
+               makeShader = std::move(makeShader), particles](
         sc::GLFWRenderer& renderer, std::size_t frame, std::size_t time) mutable
     {
         internal::SceneCache<NumericT> sceneCache{
@@ -330,6 +421,8 @@ void initMrcRender(sc::Camera<NumericT, sc::VecArray>& camera,
         auto viewProj = proj * view;
         efmu(frame, time);
         internal::renderSingleFrame(models, viewProj, makeShader, sceneCache);
+        if (particles)
+            internal::renderParticles(*particles, viewProj, sceneCache);
         cd(frame, time, renderer, viewProj, zBuffer);
     };
 
@@ -361,7 +454,7 @@ template<typename NumericT,
     typename CustomDrawer =
         decltype([](std::size_t, std::size_t, sc::GLFWRenderer&, const sc::utils::Mat<NumericT, 4, 4>&,
             const std::vector<std::vector<NumericT>>&){ }),
-    typename MakeShader = internal::DefaultShaderFactory<NumericT>>
+    typename MakeShader = internal::BlinnFongShaderFactory<NumericT>>
 auto makeMrcWindow(sc::Camera<NumericT, sc::VecArray>& camera,
                    const std::vector<Model<NumericT>>& models,
                    const std::vector<LightSource<NumericT>>& lights,
@@ -371,7 +464,8 @@ auto makeMrcWindow(sc::Camera<NumericT, sc::VecArray>& camera,
                    sc::utils::Vec<int, 2> windowResolution = sc::utils::Vec<int, 2>{-1, -1},
                    unsigned int targetFrameRateMs = 60,
                    const char* title = "Model Renderer",
-                   MakeShader makeShader = { })
+                   MakeShader makeShader = { },
+                   const ParticleSystem<NumericT>* particles = nullptr)
 {
     using Mat4 = sc::utils::Mat<NumericT, 4, 4>;
 
@@ -386,7 +480,7 @@ auto makeMrcWindow(sc::Camera<NumericT, sc::VecArray>& camera,
     auto ff = [&models, &camera, zBuffer,
                &lights,
                efmu = std::move(efmu), cd = std::move(cd),
-               makeShader = std::move(makeShader)](
+               makeShader = std::move(makeShader), particles](
         sc::GLFWRenderer& renderer, std::size_t frame, std::size_t time) mutable
     {
         for (auto& buf : *zBuffer)
@@ -405,6 +499,8 @@ auto makeMrcWindow(sc::Camera<NumericT, sc::VecArray>& camera,
 
         efmu(frame, time);
         internal::renderSingleFrame(models, viewProj, makeShader, sceneCache);
+        if (particles)
+            internal::renderParticles(*particles, viewProj, sceneCache);
         cd(frame, time, renderer, viewProj, *zBuffer);
     };
 

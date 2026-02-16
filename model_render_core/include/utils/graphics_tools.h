@@ -250,6 +250,7 @@ void rasterizeTriangle(
                         cache.camera.pos(),
                         interpAttr.tangent,
                         interpAttr.bitangent,
+                        interpAttr.color,
                         currentZ,
                         cache.lights
                     };
