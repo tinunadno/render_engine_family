@@ -43,8 +43,8 @@ For geometry reconstruction examples only:
 ### Building
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/render_engine_family.git
+# Clone repository (replace with your fork URL)
+git clone <your-fork-url>/render_engine_family.git
 cd render_engine_family
 
 # Create build directory
@@ -583,11 +583,10 @@ mkdir build && cd build
 # Configure
 cmake .. -DCMAKE_BUILD_TYPE=Release
 
-# Build (Linux/macOS: use -j$(nproc) or -j$(sysctl -n hw.ncpu) for parallel builds)
-cmake --build . -j$(nproc)
-```
+# Build (use --parallel for cross-platform, or -j$(nproc) on Linux/macOS)
+cmake --build . --parallel
 
-# Run examples
+# Run an example
 ./engine_core_examples/simple_ray_tracer
 ```
 

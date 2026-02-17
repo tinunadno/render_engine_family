@@ -1,6 +1,6 @@
 # Architecture Diagrams
 
-This directory contains Mermaid diagrams that visualize the render engine architecture.
+This directory contains Mermaid diagrams that visualize render engine architecture.
 
 ## Diagrams
 
@@ -8,7 +8,7 @@ This directory contains Mermaid diagrams that visualize the render engine archit
 |---------|-------------|
 | [`high-level.mmd`](high-level.mmd) | High-level architecture showing core libraries, dependencies, and applications |
 | [`component-diagram.mmd`](component-diagram.mmd) | Detailed component breakdown of each core module |
-| [`request-flow.mmd`](request-flow.mmd) | Sequence diagram showing the typical render request flow |
+| [`request-flow.mmd`](request-flow.mmd) | Sequence diagram showing typical render request flow |
 | [`deployment.mmd`](deployment.mmd) | Deployment and build process diagram |
 
 ## Generating SVG Images

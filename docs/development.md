@@ -192,6 +192,9 @@ SoA layout provides:
 
 ### Enable Logging
 
+**Primary method** (recommended): Uncomment `add_compile_definitions(ENABLE_LOG)` in root [CMakeLists.txt](../CMakeLists.txt#L9)
+
+**Alternative method** (temporary debugging):
 ```cpp
 #define ENABLE_LOG
 #include "entry_point.h"
