@@ -15,8 +15,8 @@ Before contributing, ensure you have:
 ### Setting Up Development Environment
 
 ```bash
-# Clone your fork
-git clone https://github.com/YOUR_USERNAME/render_engine_family.git
+# Clone your fork (replace with your fork URL)
+git clone <your-fork-url>/render_engine_family.git
 cd render_engine_family
 
 # Create a build directory
@@ -26,7 +26,8 @@ mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Debug
 cmake --build .
 
-# Run examples to verify
+# Run examples to verify (from build directory)
+cd build
 ./engine_core_examples/simple_ray_tracer
 ```
 

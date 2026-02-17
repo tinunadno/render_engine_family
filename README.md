@@ -60,6 +60,9 @@ cmake --build .
 ### Running Examples
 
 ```bash
+# Run from build directory
+cd build
+
 # Simple ray tracer
 ./engine_core_examples/simple_ray_tracer
 
@@ -76,6 +79,13 @@ cmake --build .
 ./mrc_texture_example
 ```
 
+Or build and run a specific example:
+
+```bash
+cmake --build . --target engine_core_examples
+./engine_core_examples/simple_ray_tracer
+```
+
 ## Features
 
 ### Core Capabilities
@@ -89,7 +99,7 @@ cmake --build .
 
 ### Rendering Techniques
 
-- **Blinn-Phong Shading** - With TBN basis for normal mapping
+- **Blinn-Phong Shading** - With TBN basis for normal mapping (see [model_render_core/include/main_pipeline.h](model_render_core/include/main_pipeline.h))
 - **Texture Mapping** - UV coordinates, tangent space transformations
 - **Backface Culling** - View-space optimization
 - **Z-Buffer Depth Testing** - Proper occlusion handling
@@ -100,7 +110,7 @@ cmake --build .
 - **OBJ/MTL Format** - Wavefront OBJ model loading
 - **Multi-Material Support** - Per-face material assignment
 - **Texture Channels** - Color, normal, and roughness maps
-- **PBR Textures** - 4K high-resolution texture support
+- **PBR Textures** - High-resolution texture support (see `examples/mrc_texture_example/objects/`)
 
 ### Advanced Features
 
@@ -173,17 +183,80 @@ graph TB
 
 ### Component Breakdown
 
-![Component Diagram](docs/architecture/component-diagram.mmd)
+```mermaid
+graph TB
+    subgraph "engine_core - Rendering Infrastructure"
+        Camera[Camera<br/>Position/Rotation/Resolution]
+        CameraView[CameraView<br/>Ray Generation]
+        GLFW[GLFWRenderer<br/>Window & Buffer]
+        Render[Render Loop<br/>initPerFrame/initEachPixel]
+        Math[Math Utils<br/>Vec/Mat/Ray]
+    end
+
+    subgraph "model_render_core - 3D Rendering"
+        Model[Model<br/>Mesh/Geometry]
+        Material[Material<br/>PBR/Textures]
+        Particle[ParticleSystem<br/>Screen-space Billboards]
+        Pipeline[MainPipeline<br/>Blinn-Phong Shading]
+        Rasterizer[TiledRasterizer<br/>Parallel Rasterization]
+        IO[Model I/O<br/>OBJ/MTL Loader]
+    end
+
+    subgraph "ray_marching_core - Procedural"
+        SDF[SceneObject<br/>Signed Distance Functions]
+        Iterator[RayMarchingIterator<br/>SDF Marching]
+        Curvature[Curvature<br/>Space Deformation]
+        Result[RayMarchingResult<br/>Hit Detection]
+    end
+
+    subgraph "Flow"
+        Input[User Input<br/>Keyboard/Mouse]
+        View[View Matrix<br/>Camera Transform]
+        Proj[Projection Matrix<br/>Perspective]
+        Clip[Clip Space<br/>Culling]
+        Screen[Screen Space<br/>Rasterization]
+        Pixel[Pixel Shader<br/>Lighting/Color]
+    end
+
+    Camera --> CameraView
+    CameraView --> Render
+    Render --> GLFW
+    Math --> Camera
+    Math --> Pipeline
+
+    IO --> Model
+    Model --> Pipeline
+    Material --> Pipeline
+    Particle --> Pipeline
+    Pipeline --> Rasterizer
+    Rasterizer --> GLFW
+
+    SDF --> Iterator
+    Curvature --> Iterator
+    Iterator --> Result
+    Result --> Render
+
+    Input --> Camera
+    Camera --> View
+    View --> Clip
+    Clip --> Screen
+    Screen --> Pixel
+
+    style Camera fill:#3498db,color:#fff
+    style Model fill:#e74c3c,color:#fff
+    style SDF fill:#9b59b6,color:#fff
+    style Pipeline fill:#f39c12,color:#fff
+```
 
 The engine consists of three core modules:
 
 #### **engine_core** - Rendering Infrastructure
 
 Base rendering framework providing:
-- **Camera System** - Position, rotation, resolution, and projection
-- **Window Management** - GLFW integration with event handling
-- **Math Utilities** - Vec, Mat, and Ray types
-- **Render Loops** - Frame-based and per-pixel rendering modes
+- **Camera System** - Position, rotation, resolution, and projection (see [engine_core/include/camera/](engine_core/include/camera/))
+- **Window Management** - GLFW integration with event handling (see [engine_core/include/glfw_render.h](engine_core/include/glfw_render.h))
+- **Math Utilities** - Vec, Mat, and Ray types (see [engine_core/include/utils/](engine_core/include/utils/))
+- **Render Loops** - Frame-based and per-pixel rendering modes (see [engine_core/include/entry_point.h](engine_core/include/entry_point.h))
 - **Entry Points** - Templates for different rendering workflows
 
 Key entry points:
@@ -193,11 +266,11 @@ Key entry points:
 #### **model_render_core** - 3D Model Rendering
 
 Complete 3D rendering pipeline:
-- **Model Loading** - OBJ/MTL file format support
-- **Material System** - PBR with albedo, normal, and roughness maps
-- **Particle System** - Screen-space impostor rendering with customizable billboards
+- **Model Loading** - OBJ/MTL file format support (see [model_render_core/include/model/io.h](model_render_core/include/model/io.h))
+- **Material System** - PBR with albedo, normal, and roughness maps (see [model_render_core/include/model/material.h](model_render_core/include/model/material.h))
+- **Particle System** - Screen-space impostor rendering with customizable billboards (see [model_render_core/include/particle_system.h](model_render_core/include/particle_system.h))
 - **Shading Pipeline** - Blinn-Phong with TBN basis for normal mapping
-- **Rasterization** - Tiled parallel rasterizer with z-buffer
+- **Rasterization** - Tiled parallel rasterizer with z-buffer (see [model_render_core/include/utils/tiled_rasterizer.h](model_render_core/include/utils/tiled_rasterizer.h))
 
 Key entry point:
 - `initMrcRender()` - Main rendering loop for models
@@ -205,14 +278,63 @@ Key entry point:
 #### **ray_marching_core** - Procedural Rendering
 
 Ray marching implementation for procedural content:
-- **SDF Objects** - Signed Distance Function primitives
+- **SDF Objects** - Signed Distance Function primitives (see [ray_marching_core/include/object/](ray_marching_core/include/object/))
 - **Ray Marching Iterator** - Configurable marching algorithm
-- **Curvature System** - Space deformation for curved space effects
+- **Curvature System** - Space deformation for curved space effects (see [ray_marching_core/include/curvature/](ray_marching_core/include/curvature/))
 - **Material Integration** - Compatible with shading pipeline
 
 ### Request Flow
 
-![Request Flow Diagram](docs/architecture/request-flow.mmd)
+```mermaid
+sequenceDiagram
+    participant App as Application
+    participant Entry as Entry Point
+    participant Camera as Camera System
+    participant Renderer as Renderer
+    participant Pipeline as Rendering Pipeline
+    participant Assets as Model Assets
+
+    App->>Entry: initMrcRender(camera, models, lights)
+    Entry->>Camera: Get view matrix
+    Entry->>Camera: Get projection matrix
+
+    loop Main Render Loop (60 FPS)
+        App->>Entry: Frame Update
+        Entry->>Camera: Update position/rotation
+        Camera->>Entry: View matrix
+        Camera->>Entry: Projection matrix
+
+        par Model Rendering
+            Entry->>Pipeline: For each model:
+            Pipeline->>Assets: Load geometry/UVs/normals
+            Assets-->>Pipeline: Vertex data
+            Pipeline->>Pipeline: Transform vertices
+            Pipeline->>Pipeline: Compute face normals
+            Pipeline->>Pipeline: Backface culling
+            Pipeline->>Pipeline: Clip to near plane
+            Pipeline->>Pipeline: Project to screen space
+            Pipeline->>Renderer: Rasterize triangles (tiled)
+        end
+
+        par Particle Rendering (optional)
+            Entry->>Pipeline: For each particle:
+            Pipeline->>Pipeline: Transform billboard
+            Pipeline->>Renderer: Batch rasterize
+        end
+
+        Renderer->>Renderer: Z-buffer test
+        Renderer->>Pipeline: Fragment shading
+        Pipeline->>Pipeline: Sample textures (albedo/normal/roughness)
+        Pipeline->>Pipeline: Compute TBN basis
+        Pipeline->>Pipeline: Blinn-Phong lighting
+        Pipeline-->>Renderer: Pixel color
+
+        Renderer->>Entry: Frame buffer
+        Entry->>App: Display
+    end
+
+    Note over App,Entry: User can move camera (WASD + Mouse)
+```
 
 Typical render flow for a model rendering application:
 
@@ -320,12 +442,12 @@ Shows physically-based rendering with 4K textures:
 **Assets:**
 - `rock.obj` - High-detail rock model
 - `rock.mtl` - Material definitions
-- 4K texture maps
+- High-resolution texture maps (see `objects/` directory)
 
 #### Particle System (`examples/particles_exmaple/`)
 Demonstrates screen-space particle impostor rendering:
-- 10,000 particles
-- Circular billboard approximation
+- Thousands of particles (configurable, see [examples/particles_exmaple/main.cpp](examples/particles_exmaple/main.cpp#L81))
+- Circular billboard approximation (8 segments)
 - Per-particle size and color
 - Real-time update (rotation animation)
 
@@ -361,7 +483,7 @@ Structure from Motion implementation using COLMAP:
 
 ### Camera Controls
 
-All model rendering examples share the same controls:
+All model rendering examples share the same controls (see [model_render_core/include/main_pipeline.h](model_render_core/include/main_pipeline.h#L432-L447)):
 
 | Key | Action |
 |-----|--------|
@@ -375,7 +497,7 @@ All model rendering examples share the same controls:
 
 ### Build Configuration
 
-Build configuration is handled through CMake. Key options:
+Build configuration is handled through CMake. Key options (see root [CMakeLists.txt](CMakeLists.txt)):
 
 ```cmake
 # C++20 is required
@@ -388,7 +510,7 @@ set(CMAKE_BUILD_TYPE Release)
 
 ### Camera Configuration
 
-Camera can be configured programmatically:
+Camera can be configured programmatically (see [engine_core/include/camera/camera.h](engine_core/include/camera/camera.h)):
 
 ```cpp
 sc::Camera<float, sc::VecArray> camera;
@@ -431,7 +553,7 @@ auto mouseHandler = [](double dx, double dy) {
 
 ### Material Configuration
 
-Materials can be defined in MTL files or programmatically:
+Materials can be defined in MTL files or programmatically (see [model_render_core/include/model/material.h](model_render_core/include/model/material.h)):
 
 ```cpp
 mrc::Material material;
@@ -451,8 +573,8 @@ material.roughnessMap = loadTexture("roughness.jpg");
 ### Building from Source
 
 ```bash
-# Clone repository
-git clone https://github.com/yourusername/render_engine_family.git
+# Clone repository (replace with your fork URL)
+git clone <your-fork-url>/render_engine_family.git
 cd render_engine_family
 
 # Create build directory
@@ -464,8 +586,8 @@ cmake .. -DCMAKE_BUILD_TYPE=Release
 # Build
 cmake --build . -j$(nproc)
 
-# (Optional) Run tests
-ctest
+# Run examples
+./engine_core_examples/simple_ray_tracer
 ```
 
 ### Project Files
@@ -475,7 +597,7 @@ ctest
 
 ### Code Style
 
-The project uses modern C++20 features:
+The project uses modern C++20 features (see [CMakeLists.txt](CMakeLists.txt#L5)):
 - Templates for generic algorithms
 - Lambda expressions for callbacks
 - Structured bindings
@@ -496,15 +618,7 @@ The project uses modern C++20 features:
    ```
 4. Implement your example
 
-### Adding a New Model
-
-1. Place `.obj` and `.mtl` files in your example's directory
-2. Load using `mrc::io::readFromObjFile()`:
-   ```cpp
-   auto model = mrc::io::readFromObjFile<float>("model.obj");
-   models.push_back(model);
-   ```
-3. Place texture files alongside the model
+See [docs/development.md](docs/development.md) for detailed guide.
 
 ## Troubleshooting
 
@@ -552,12 +666,12 @@ brew install eigen
 **Models not rendering:**
 - Verify OBJ/MTL files exist
 - Check file paths are correct (relative to executable)
-- Enable logging with `#define ENABLE_LOG` before including headers
+- Enable logging by uncommenting `add_compile_definitions(ENABLE_LOG)` in root [CMakeLists.txt](CMakeLists.txt#L9)
 
 **Textures not loading:**
-- Check image file formats (JPG/PNG supported via stb_image)
+- Check image file formats (JPG/PNG supported via stb_image, see [model_render_core/include/model/thirdparty/stb_image.h](model_render_core/include/model/thirdparty/stb_image.h))
 - Verify file paths
-- Check texture dimensions are power-of-2 (for best compatibility)
+- Check texture dimensions
 
 ## Roadmap
 
@@ -577,13 +691,12 @@ brew install eigen
 ### Known Limitations
 
 - CPU-based rendering only (no GPU acceleration)
-- Limited to OpenGL 3.0+ features
-- No multi-threaded rendering (except tiled rasterization)
+- Rendering capabilities limited to CPU performance
 - SFM example requires external COLMAP installation
 
 ## Contributing
 
-Contributions are welcome! Here's how to get started:
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ### Setup
 
