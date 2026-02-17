@@ -1,0 +1,53 @@
+```mermaid
+graph TB
+    subgraph "Local Development"
+        Dev[Developer Machine]
+        Source[Source Code<br/>.cpp/.h files]
+        Build[CMake Build System]
+        Exec[Executable<br/>Examples]
+    end
+
+    subgraph "Build Process"
+        CMake[CMake<br/>Configuration]
+        Compile[Compiler<br/>C++20]
+        Link[Linker<br/>Libraries]
+    end
+
+    subgraph "Dependencies"
+        GLFW[GLFW3]
+        OpenGL[OpenGL]
+        Eigen3[Eigen3<br/>SFM only]
+        STB[stb_image<br/>Embedded]
+        Manifold[Manifold<br/>Geometry only]
+        COLMAP[COLMAP<br/>SFM only]
+    end
+
+    subgraph "Runtime"
+        Window[GLFW Window]
+        GPU[OpenGL Context]
+        CPU[CPU Rasterizer]
+    end
+
+    Dev --> Source
+    Source --> CMake
+    CMake --> Compile
+    Compile --> Link
+    Link --> Exec
+
+    Compile --> GLFW
+    Compile --> OpenGL
+    Link --> Eigen3
+    Link --> STB
+    Link --> Manifold
+    Link --> COLMAP
+
+    Exec --> Window
+    Exec --> GPU
+    Exec --> CPU
+
+    style Source fill:#95a5a6,color:#fff
+    style Exec fill:#2ecc71,color:#fff
+    style Window fill:#3498db,color:#fff
+    style GPU fill:#e74c3c,color:#fff
+    style CPU fill:#f39c12,color:#fff
+```

@@ -1,0 +1,66 @@
+```mermaid
+graph TB
+    subgraph "Render Engine Family"
+        subgraph "Core Libraries"
+            EC[engine_core<br/>Windowing & Math]
+            MRC[model_render_core<br/>3D Models & PBR]
+            RMC[ray_marching_core<br/>SDF & Curvature]
+        end
+
+        subgraph "External Dependencies"
+            GLFW[GLFW3<br/>Windowing]
+            OpenGL[OpenGL<br/>Graphics API]
+            Eigen3[Eigen3<br/>Linear Algebra]
+            STB[stb_image<br/>Image I/O]
+        end
+
+        subgraph "Applications"
+            EX1[Black Hole Shader]
+            EX2[Model Render Examples]
+            EX3[Particle System]
+            EX4[SFM Reconstruction]
+            EX5[Geometry Reconstruction]
+        end
+
+        subgraph "Assets"
+            OBJ[OBJ/MTL Models]
+            TEX[Textures<br/>Color/Normal/Roughness]
+        end
+    end
+
+    EC -->|provides| MRC
+    EC -->|provides| RMC
+    EC --> GLFW
+    EC --> OpenGL
+
+    MRC --> STB
+    RMC --> Eigen3
+
+    EX1 --> EC
+    EX1 --> RMC
+
+    EX2 --> EC
+    EX2 --> MRC
+
+    EX3 --> EC
+    EX3 --> MRC
+
+    EX4 --> EC
+    EX4 --> MRC
+    EX4 --> Eigen3
+
+    EX5 --> EC
+    EX5 --> MRC
+
+    MRC --> OBJ
+    MRC --> TEX
+
+    style EC fill:#3498db,color:#fff
+    style MRC fill:#e74c3c,color:#fff
+    style RMC fill:#9b59b6,color:#fff
+    style EX1 fill:#2ecc71,color:#fff
+    style EX2 fill:#2ecc71,color:#fff
+    style EX3 fill:#2ecc71,color:#fff
+    style EX4 fill:#2ecc71,color:#fff
+    style EX5 fill:#2ecc71,color:#fff
+```

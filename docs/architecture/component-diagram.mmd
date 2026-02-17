@@ -1,0 +1,64 @@
+```mermaid
+graph TB
+    subgraph "engine_core - Rendering Infrastructure"
+        Camera[Camera<br/>Position/Rotation/Resolution]
+        CameraView[CameraView<br/>Ray Generation]
+        GLFW[GLFWRenderer<br/>Window & Buffer]
+        Render[Render Loop<br/>initPerFrame/initEachPixel]
+        Math[Math Utils<br/>Vec/Mat/Ray]
+    end
+
+    subgraph "model_render_core - 3D Rendering"
+        Model[Model<br/>Mesh/Geometry]
+        Material[Material<br/>PBR/Textures]
+        Particle[ParticleSystem<br/>Screen-space Billboards]
+        Pipeline[MainPipeline<br/>Blinn-Phong Shading]
+        Rasterizer[TiledRasterizer<br/>Parallel Rasterization]
+        IO[Model I/O<br/>OBJ/MTL Loader]
+    end
+
+    subgraph "ray_marching_core - Procedural"
+        SDF[SceneObject<br/>Signed Distance Functions]
+        Iterator[RayMarchingIterator<br/>SDF Marching]
+        Curvature[Curvature<br/>Space Deformation]
+        Result[RayMarchingResult<br/>Hit Detection]
+    end
+
+    subgraph "Flow"
+        Input[User Input<br/>Keyboard/Mouse]
+        View[View Matrix<br/>Camera Transform]
+        Proj[Projection Matrix<br/>Perspective]
+        Clip[Clip Space<br/>Culling]
+        Screen[Screen Space<br/>Rasterization]
+        Pixel[Pixel Shader<br/>Lighting/Color]
+    end
+
+    Camera --> CameraView
+    CameraView --> Render
+    Render --> GLFW
+    Math --> Camera
+    Math --> Pipeline
+
+    IO --> Model
+    Model --> Pipeline
+    Material --> Pipeline
+    Particle --> Pipeline
+    Pipeline --> Rasterizer
+    Rasterizer --> GLFW
+
+    SDF --> Iterator
+    Curvature --> Iterator
+    Iterator --> Result
+    Result --> Render
+
+    Input --> Camera
+    Camera --> View
+    View --> Clip
+    Clip --> Screen
+    Screen --> Pixel
+
+    style Camera fill:#3498db,color:#fff
+    style Model fill:#e74c3c,color:#fff
+    style SDF fill:#9b59b6,color:#fff
+    style Pipeline fill:#f39c12,color:#fff
+```
