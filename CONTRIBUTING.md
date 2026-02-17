@@ -35,7 +35,7 @@ cd build
 
 ### Branching Strategy
 
-- `master` - Main stable branch
+- `main`/`master` - Main stable branch (check your repo)
 - `docs/*` - Documentation changes
 - `feature/*` - New features
 - `fix/*` - Bug fixes
@@ -43,10 +43,10 @@ cd build
 
 ### Making Changes
 
-1. Create a new branch from `master`:
+1. Create a new branch from main/master:
    ```bash
-   git checkout master
-   git pull origin master
+   git checkout main || git checkout master
+   git pull
    git checkout -b feature/your-feature-name
    ```
 

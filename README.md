@@ -79,10 +79,10 @@ cd build
 ./mrc_texture_example
 ```
 
-Or build and run a specific example:
+Or build and run a specific target:
 
 ```bash
-cmake --build . --target engine_core_examples
+cmake --build . --target simple_ray_tracer
 ./engine_core_examples/simple_ray_tracer
 ```
 
@@ -434,7 +434,7 @@ mrc::initMrcRender(camera, models, lights);
 ```
 
 #### PBR Texture Example (`examples/mrc_texture_example/`)
-Shows physically-based rendering with 4K textures:
+Shows physically-based rendering with high-resolution textures:
 - Color map (albedo)
 - Normal map (tangent space)
 - Roughness map (specular control)
@@ -583,8 +583,9 @@ mkdir build && cd build
 # Configure
 cmake .. -DCMAKE_BUILD_TYPE=Release
 
-# Build
+# Build (Linux/macOS: use -j$(nproc) or -j$(sysctl -n hw.ncpu) for parallel builds)
 cmake --build . -j$(nproc)
+```
 
 # Run examples
 ./engine_core_examples/simple_ray_tracer
@@ -633,7 +634,7 @@ sudo apt install cmake
 brew install cmake
 
 # Windows
-# Download from https://cmake.org/download/
+# Install via package manager or download from official site
 ```
 
 **GLFW not found:**
@@ -645,7 +646,7 @@ sudo apt install libglfw3-dev
 brew install glfw
 
 # Windows
-# Download from https://www.glfw.org/download.html
+# Install via vcpkg or download from official site
 ```
 
 **Eigen3 not found (for SFM examples):**
