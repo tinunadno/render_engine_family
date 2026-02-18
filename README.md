@@ -9,6 +9,7 @@ A modern C++20 rendering engine family featuring ray marching, 3D model renderin
 
 ## Table of Contents
 
+- [Examples](#examples)
 - [Quickstart](#quickstart)
 - [Features](#features)
 - [Architecture](#architecture)
@@ -21,6 +22,14 @@ A modern C++20 rendering engine family featuring ray marching, 3D model renderin
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [License](#license)
+
+## Examples
+
+![material.gif](contents/material.gif)
+![model_reconstruction.gif](contents/model_reconstruction.gif)
+![particle.gif](contents/particle.gif)
+![ray_marching.gif](contents/ray_marching.gif)
+![ray_tracing.gif](contents/ray_tracing.gif)
 
 ## Quickstart
 

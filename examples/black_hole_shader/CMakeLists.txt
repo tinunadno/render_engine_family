@@ -7,9 +7,6 @@ find_package(OpenGL REQUIRED)
 
 add_executable(black_hole_shader
         main.cpp
-        ../sfm_model_reconstruction/main.cpp
-        ../sfm_model_reconstruction/snapshot.h
-        ../particles_exmaple/main.cpp
 )
 
 target_link_libraries(black_hole_shader
