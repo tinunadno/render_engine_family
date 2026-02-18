@@ -1,0 +1,49 @@
+```mermaid
+sequenceDiagram
+    participant App as Application
+    participant Entry as Entry Point
+    participant Camera as Camera System
+    participant Renderer as Renderer
+    participant Pipeline as Rendering Pipeline
+    participant Assets as Model Assets
+
+    App->>Entry: initMrcRender(camera, models, lights)
+    Entry->>Camera: Get view matrix
+    Entry->>Camera: Get projection matrix
+
+    loop Main Render Loop (60 FPS)
+        App->>Entry: Frame Update
+        Entry->>Camera: Update position/rotation
+        Camera->>Entry: View matrix
+        Camera->>Entry: Projection matrix
+
+        par Model Rendering
+            Entry->>Pipeline: For each model:
+            Pipeline->>Assets: Load geometry/UVs/normals
+            Assets-->>Pipeline: Vertex data
+            Pipeline->>Pipeline: Transform vertices
+            Pipeline->>Pipeline: Compute face normals
+            Pipeline->>Pipeline: Backface culling
+            Pipeline->>Pipeline: Clip to near plane
+            Pipeline->>Pipeline: Project to screen space
+            Pipeline->>Renderer: Rasterize triangles (tiled)
+        end
+
+        par Particle Rendering (optional)
+            Entry->>Pipeline: For each particle:
+            Pipeline->>Pipeline: Transform billboard
+            Pipeline->>Renderer: Batch rasterize
+        end
+
+        Renderer->>Renderer: Z-buffer test
+        Renderer->>Pipeline: Fragment shading
+        Pipeline->>Pipeline: Sample textures (albedo/normal/roughness)
+        Pipeline->>Pipeline: Compute TBN basis
+        Pipeline->>Pipeline: Blinn-Phong lighting
+        Pipeline-->>Renderer: Pixel color
+
+        Renderer->>Entry: Frame buffer
+        Entry->>App: Display
+    end
+
+    Note over App,Entry: User can move camera (WASD + Mouse)
