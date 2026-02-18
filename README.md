@@ -31,7 +31,6 @@ Get up and running in minutes:
 - **CMake** 3.15 or higher
 - **C++20 compatible compiler** (GCC 10+, Clang 12+, MSVC 19.28+)
 - **GLFW3** for windowing
-- **OpenGL** for graphics
 
 For SFM examples only:
 - **Eigen3** for linear algebra
@@ -357,7 +356,6 @@ See [docs/architecture/](docs/architecture/) for detailed diagrams.
 | **Language** | C++20 |
 | **Build System** | CMake 3.15+ |
 | **Windowing** | GLFW3 |
-| **Graphics** | OpenGL |
 | **Math** | Eigen3 (SFM examples) |
 | **Image I/O** | stb_image (embedded) |
 | **Geometry** | Manifold (geometry reconstruction) |
