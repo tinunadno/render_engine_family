@@ -21,10 +21,9 @@ find_package(Eigen3 REQUIRED)
 find_package(colmap REQUIRED)
 
 add_executable(sfm_model_reconstruction
-        test.cpp
         snapshot.h
         sfm/run_sfm.h
-        test.cpp
+        main.cpp
 )
 
 target_compile_definitions(sfm_model_reconstruction PRIVATE PROJECT_DIR="${CMAKE_CURRENT_SOURCE_DIR}")

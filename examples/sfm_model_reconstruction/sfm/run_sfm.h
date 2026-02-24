@@ -72,6 +72,10 @@ inline std::vector<Eigen::Vector3d> runSfM(
     // directly and wrap in ControllerThread to run it as a thread.
     auto pipeline_options =
         std::make_shared<colmap::IncrementalPipelineOptions>();
+
+    pipeline_options->ba_global_max_num_iterations = 100;
+    pipeline_options->ba_local_max_num_iterations = 50;
+
     auto reconstruction_manager =
         std::make_shared<colmap::ReconstructionManager>();
 
