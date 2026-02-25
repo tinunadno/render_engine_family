@@ -46,7 +46,7 @@ RUN apt-get install -y openimageio-tools
 
 WORKDIR /deps
 
-RUN git clone https://github.com/colmap/colmap.git --depth 1 colmap
+RUN git clone https://github.com/colmap/colmap.git --depth 1 --branch 3.13.0 colmap
 
 RUN sed -i \
     -e 's/add_custom_target(uninstall/add_custom_target(colmap_uninstall/g' \
@@ -55,7 +55,7 @@ RUN sed -i \
     colmap/CMakeLists.txt
 
 WORKDIR /app
-COPY CMakeLists.txt .
+COPY . .
 
 RUN apt-get install -y \
     libopencv-dev \
@@ -96,7 +96,6 @@ RUN cmake --build build --target colmap_controllers --parallel $(nproc)
 RUN find /app/build/_deps -name "pairing.h" 2>/dev/null
 RUN find /deps/colmap -name "pairing.h" 2>/dev/null
 
-COPY . .
 RUN cmake --build build --target sfm_pipeline --parallel $(nproc)
 
 # Runtime (slim)
