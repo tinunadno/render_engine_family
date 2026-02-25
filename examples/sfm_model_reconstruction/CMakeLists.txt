@@ -20,10 +20,13 @@ find_package(OpenMP REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(colmap REQUIRED)
 
+message(STATUS " colmap version: ${colmap_VERSION}")
+
 add_executable(sfm_model_reconstruction
         snapshot.h
         sfm/run_sfm.h
         main.cpp
+        sfm_result_visualisation/main.cpp
 )
 
 target_compile_definitions(sfm_model_reconstruction PRIVATE PROJECT_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
