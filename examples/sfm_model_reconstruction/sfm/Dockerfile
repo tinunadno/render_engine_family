@@ -103,7 +103,12 @@ FROM nvidia/cuda:12.3.2-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libcurl4 \
+    libgomp1 \
+    libopenimageio2.2 \
+    libopenexr25 \
+    liblz4-1 \
     libboost-program-options-dev \
     libboost-filesystem-dev \
     libboost-graph-dev \

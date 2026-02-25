@@ -3,7 +3,7 @@
 #include <colmap/controllers/feature_extraction.h>
 #include <colmap/controllers/feature_matching.h>
 // pairing.h переехал — ExhaustivePairingOptions теперь в feature_matching
-// #include <colmap/feature/pairing.h>  ← убираем
+#include <colmap/feature/pairing.h>
 #include <colmap/estimators/two_view_geometry.h>
 #include <colmap/scene/reconstruction_manager.h>
 #include <colmap/util/logging.h>
@@ -35,7 +35,7 @@ inline std::vector<Eigen::Vector3d> runSfM(
     reader_options.image_path = image_path;
 
     colmap::FeatureExtractionOptions extraction_options;
-    extraction_options.use_gpu = false;
+    extraction_options.use_gpu = true;
     // extraction_options.use_gpu is set by COLMAP_GPU_ENABLED at build time
 
     auto extractor = colmap::CreateFeatureExtractorController(
@@ -53,7 +53,7 @@ inline std::vector<Eigen::Vector3d> runSfM(
     // SiftMatchingOptions is now a sub-object inside FeatureMatchingOptions.
     colmap::ExhaustivePairingOptions pairing_options;
     colmap::FeatureMatchingOptions  matching_options;
-    matching_options.use_gpu = false;
+    matching_options.use_gpu = true;
     colmap::TwoViewGeometryOptions  geometry_options;
 
     auto matcher = colmap::CreateExhaustiveFeatureMatcher(
