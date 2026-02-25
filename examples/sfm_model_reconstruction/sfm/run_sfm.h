@@ -1,9 +1,9 @@
 #pragma once
-
 #include <colmap/controllers/incremental_pipeline.h>
 #include <colmap/controllers/feature_extraction.h>
 #include <colmap/controllers/feature_matching.h>
-#include <colmap/feature/pairing.h>
+// pairing.h переехал — ExhaustivePairingOptions теперь в feature_matching
+// #include <colmap/feature/pairing.h>  ← убираем
 #include <colmap/estimators/two_view_geometry.h>
 #include <colmap/scene/reconstruction_manager.h>
 #include <colmap/util/logging.h>
