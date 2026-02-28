@@ -3,16 +3,26 @@
 #include "material.h"
 #include "model_geometry.h"
 #include "utils/vec.h"
+#include <unordered_map>
+#include <string>
 
 namespace mrc {
 
 template<typename NumericT>
 struct Model
 {
-    using Face = typename ModelGeometry<NumericT>::Face;
+    using Face = typename ModelGeometryWithSubmeshes<NumericT>::Face;
 
-    ModelGeometry<NumericT> geometry;
+    ModelGeometryWithSubmeshes<NumericT> geometry;
+
+    // Single material for backward compatibility (first/loaded material)
     Material<NumericT> material;
+
+    // All materials loaded from MTL file
+    std::vector<Material<NumericT>> materials;
+
+    // Map material name -> index in materials vector
+    std::unordered_map<std::string, size_t> matByName;
 
     const std::vector<sc::utils::Vec<NumericT, 3>>& verticies() const { return geometry.verticies(); }
     std::vector<sc::utils::Vec<NumericT, 3>>& verticies() { return geometry.verticies(); }
@@ -23,8 +33,11 @@ struct Model
     const std::vector<sc::utils::Vec<NumericT, 3>>& normals() const { return geometry.normals(); }
     std::vector<sc::utils::Vec<NumericT, 3>>& normals() { return geometry.normals(); }
 
-    [[nodiscard]] const std::vector<typename ModelGeometry<NumericT>::Face>& faces() const { return geometry.faces(); }
-    [[nodiscard]] std::vector<typename ModelGeometry<NumericT>::Face>& faces() { return geometry.faces(); }
+    [[nodiscard]] const std::vector<typename ModelGeometryWithSubmeshes<NumericT>::Face>& faces() const { return geometry.faces(); }
+    [[nodiscard]] std::vector<typename ModelGeometryWithSubmeshes<NumericT>::Face>& faces() { return geometry.faces(); }
+
+    const std::vector<Submesh<NumericT>>& submeshes() const { return geometry.submeshes(); }
+    std::vector<Submesh<NumericT>>& submeshes() { return geometry.submeshes(); }
 
     const sc::utils::Vec<NumericT, 3>& pos() const { return geometry.pos(); }
     sc::utils::Vec<NumericT, 3>& pos() { return geometry.pos(); }

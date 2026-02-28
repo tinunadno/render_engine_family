@@ -11,72 +11,119 @@
 
 #include <memory>
 #include <algorithm>
+#include <vector>
+#include <string>
 
 namespace mrc {
 
 namespace internal
 {
 
+// Debug modes controlled by compile flags
+#ifdef DEBUG_UV_INTERPOLATION
+inline void logUVDebug(const FragmentInput<float>& frag, const std::string& materialName) {
+    Vec3f uvColor{frag.uv[0], frag.uv[1], 0.0f};
+    std::cerr << "DEBUG_UV: material=" << materialName
+              << " uv=" << uvColor[0] << "," << uvColor[1]
+              << " color=[" << uvColor[0] << "," << uvColor[1] << "," << uvColor[2] << "]\n";
+}
+#else
+inline void logUVDebug(const FragmentInput<float>& frag, const std::string& materialName) {
+    (void)frag; (void)materialName;
+}
+#endif
+
+#ifdef DEBUG_TEXTURE_ONLY
+inline void logTexOnlyDebug(const sc::utils::Vec<float, 3>& sampledColor, const std::string& materialName) {
+    std::cerr << "DEBUG_TEXONLY: material=" << materialName
+              << " sampledColor=[" << sampledColor[0] << "," << sampledColor[1] << "," << sampledColor[2] << "]\n";
+}
+#else
+inline void logTexOnlyDebug(const sc::utils::Vec<float, 3>& sampledColor, const std::string& materialName) {
+    (void)sampledColor; (void)materialName;
+}
+#endif
+
 template<typename NumericT>
 struct BlinnFongShaderFactory
 {
-    auto operator()(const Model<NumericT>& model) const
+    const Material<NumericT>& material;
+    std::string materialName;
+
+    BlinnFongShaderFactory(const Material<NumericT>& mat, const std::string& name = "unknown")
+        : material(mat), materialName(name) {}
+
+    auto operator()(const FragmentInput<NumericT>& frag) const
+        -> sc::utils::Vec<float, 3>
     {
-        return [&mat = model.material](const FragmentInput<NumericT>& frag)
-            -> sc::utils::Vec<float, 3>
+        using Vec3f = sc::utils::Vec<float, 3>;
+
+        /* ===============================
+           1. Базовый цвет (albedo)
+           ===============================
+           REQUIREMENT: NO TINTING - if texture exists, use ONLY texture
+        */
+        Vec3f albedo;
+
+        if (material.diffuseMap) {
+            // Pure texture sampling - NO baseColor multiplication
+            albedo = material.diffuseMap->sample(frag.uv);
+
+#ifdef DEBUG_TEXTURE_ONLY
+            logTexOnlyDebug(albedo, materialName);
+            return albedo;  // Skip all lighting/shading, return pure texture
+#endif
+        } else {
+            // Fallback to baseColor only when no texture
+            albedo = sc::utils::Vec<float, 3>(
+                static_cast<float>(material.baseColor[0]),
+                static_cast<float>(material.baseColor[1]),
+                static_cast<float>(material.baseColor[2])
+            );
+        }
+
+#ifdef DEBUG_UV_INTERPOLATION
+        logUVDebug(frag, materialName);
+#endif
+
+        /* ===============================
+           2. Нормаль (world-space)
+           =============================== */
+        Vec3f geoN = sc::utils::norm(Vec3f{
+            static_cast<float>(frag.normal[0]),
+            static_cast<float>(frag.normal[1]),
+            static_cast<float>(frag.normal[2])
+        });
+
+        Vec3f N = geoN;
+
+        if (material.normalMap)
         {
-            using Vec3f = sc::utils::Vec<float, 3>;
+            // Normal map хранит нормали в tangent space [0,1] → remap [-1,1]
+            Vec3f tsN = material.normalMap->sample(frag.uv);
+            tsN = tsN * 2.f - Vec3f{1.f, 1.f, 1.f};
 
-            /* ===============================
-               1. Базовый цвет (albedo)
-               =============================== */
-            Vec3f albedo{
-                static_cast<float>(mat.baseColor[0]),
-                static_cast<float>(mat.baseColor[1]),
-                static_cast<float>(mat.baseColor[2])
-            };
-
-            if (mat.diffuseMap)
-                albedo = mat.diffuseMap->sample(frag.uv);
-
-            /* ===============================
-               2. Нормаль (world-space)
-               =============================== */
-            Vec3f geoN = sc::utils::norm(Vec3f{
-                static_cast<float>(frag.normal[0]),
-                static_cast<float>(frag.normal[1]),
-                static_cast<float>(frag.normal[2])
+            // Построение TBN базиса
+            Vec3f T = sc::utils::norm(Vec3f{
+                static_cast<float>(frag.tangent[0]),
+                static_cast<float>(frag.tangent[1]),
+                static_cast<float>(frag.tangent[2])
             });
 
-            Vec3f N = geoN;
+            // Gram-Schmidt: ортогонализируем T относительно N
+            T = sc::utils::norm(T - geoN * sc::utils::dot(T, geoN));
+            Vec3f B = sc::utils::cross(geoN, T);
 
-            if (mat.normalMap)
-            {
-                // Normal map хранит нормали в tangent space [0,1] → remap [-1,1]
-                Vec3f tsN = mat.normalMap->sample(frag.uv);
-                tsN = tsN * 2.f - Vec3f{1.f, 1.f, 1.f};
+            // tangent space → world space
+            N = sc::utils::norm(
+                T * tsN[0] + B * tsN[1] + geoN * tsN[2]
+            );
+        }
 
-                // Построение TBN базиса
-                Vec3f T = sc::utils::norm(Vec3f{
-                    static_cast<float>(frag.tangent[0]),
-                    static_cast<float>(frag.tangent[1]),
-                    static_cast<float>(frag.tangent[2])
-                });
-
-                // Gram-Schmidt: ортогонализируем T относительно N
-                T = sc::utils::norm(T - geoN * sc::utils::dot(T, geoN));
-                Vec3f B = sc::utils::cross(geoN, T);
-
-                // tangent space → world space
-                N = sc::utils::norm(
-                    T * tsN[0] + B * tsN[1] + geoN * tsN[2]
-                );
-            }
-
-            /* ===============================
-               3. Вектор на камеру (view)
-               =============================== */
-            Vec3f V = sc::utils::norm(Vec3f{
+        /* ===============================
+           3. Вектор на камеру (view)
+           =============================== */
+        Vec3f V = sc::utils::norm(Vec3f{
                 static_cast<float>(frag.cameraPos[0] - frag.worldPos[0]),
                 static_cast<float>(frag.cameraPos[1] - frag.worldPos[1]),
                 static_cast<float>(frag.cameraPos[2] - frag.worldPos[2])
@@ -85,7 +132,7 @@ struct BlinnFongShaderFactory
             /* ===============================
                4. Ambient
                =============================== */
-            float amb = static_cast<float>(mat.ambient);
+            float amb = static_cast<float>(material.ambient);
             Vec3f result = albedo * amb;
 
             /* ===============================
@@ -94,12 +141,12 @@ struct BlinnFongShaderFactory
             float shin;
             float ks;
 
-            if (mat.roughnessMap)
+            if (material.roughnessMap)
             {
                 // map_Ns (Blender) хранит roughness:
                 //   0 (чёрный) = гладкий,  1 (белый) = шершавый
                 float roughness = std::clamp(
-                    mat.roughnessMap->sample(frag.uv)[0], 0.f, 1.f);
+                    material.roughnessMap->sample(frag.uv)[0], 0.f, 1.f);
                 float smoothness = 1.f - roughness;
                 float s2 = smoothness * smoothness;
                 float s4 = s2 * s2;
@@ -110,14 +157,14 @@ struct BlinnFongShaderFactory
 
                 // Roughness → specular intensity:
                 //   smooth → full specular, rough → none
-                float specBase = static_cast<float>(mat.specular);
+                float specBase = static_cast<float>(material.specular);
                 if (specBase <= 0.f) specBase = 0.5f;
                 ks = s2 * specBase;
             }
             else
             {
-                shin = static_cast<float>(mat.shininess);
-                ks   = static_cast<float>(mat.specular);
+                shin = static_cast<float>(material.shininess);
+                ks   = static_cast<float>(material.specular);
             }
 
             /* ===============================
@@ -156,13 +203,11 @@ struct BlinnFongShaderFactory
             /* ===============================
                7. Clamp [0, 1]
                =============================== */
-            return Vec3f{
+            return sc::utils::Vec<float, 3>(
                 std::min(result[0], 1.f),
                 std::min(result[1], 1.f),
                 std::min(result[2], 1.f)
-            };
-        };
-
+            );
     }
 };
 
@@ -182,85 +227,186 @@ void renderSingleFrame(const std::vector<Model<NumericT>>& models,
 
     for (const auto& model : models)
     {
-        auto shader = makeShader(model);
-
+        // Transform vertices and normals once per model
         auto transformedVerts = internal::transformVerticies(
             model.verticies(), model.pos(), model.rot());
         auto transformedNormals = internal::transformNormals(
             model.normals(), model.rot());
 
-        projected.clear();
-        projected.reserve(model.faces().size());
+        // Get submeshes for this model
+        const auto& submeshes = model.submeshes();
 
-        for (std::size_t f = 0; f < model.faces().size(); ++f)
-        {
-            const auto& face = model.faces()[f];
+        // If no submeshes, render entire model with default material
+        if (submeshes.empty()) {
+            projected.clear();
+            projected.reserve(model.faces().size());
 
-            auto faceNormal = getFaceNormal(transformedVerts, face);
-
-            auto p0 = transformedVerts[face[0][0]];
-
-            Vec3 toCamera = cameraPos - p0;
-            if (sc::utils::dot(faceNormal, toCamera) <= NumericT(0))
-                continue;
-
-            auto p1 = transformedVerts[face[1][0]];
-            auto p2 = transformedVerts[face[2][0]];
-
-            Vec2 uv0{}, uv1{}, uv2{};
-            if (face[0][1] < model.uv().size()) uv0 = model.uv()[face[0][1]];
-            if (face[1][1] < model.uv().size()) uv1 = model.uv()[face[1][1]];
-            if (face[2][1] < model.uv().size()) uv2 = model.uv()[face[2][1]];
-
-            auto edge1 = p1 - p0;
-            auto edge2 = p2 - p0;
-            auto duv1 = uv1 - uv0;
-            auto duv2 = uv2 - uv0;
-
-            NumericT det = duv1[0] * duv2[1] - duv2[0] * duv1[1];
-
-            Vec3 faceTangent{1, 0, 0};
-            Vec3 faceBitangent{0, 1, 0};
-
-            if (std::abs(det) > NumericT(1e-8))
+            for (std::size_t f = 0; f < model.faces().size(); ++f)
             {
-                NumericT invDet = NumericT(1) / det;
-                faceTangent   = sc::utils::norm(
-                    (edge1 * duv2[1] - edge2 * duv1[1]) * invDet);
-                faceBitangent = sc::utils::norm(
-                    (edge2 * duv1[0] - edge1 * duv2[0]) * invDet);
+                const auto& face = model.faces()[f];
+
+                auto faceNormal = getFaceNormal(transformedVerts, face);
+
+                auto p0 = transformedVerts[face[0][0]];
+
+                Vec3 toCamera = cameraPos - p0;
+                // TEMP: Disabled backface culling for debugging texture issue
+                // if (sc::utils::dot(faceNormal, toCamera) <= NumericT(0))
+                //     continue;
+
+                auto p1 = transformedVerts[face[1][0]];
+                auto p2 = transformedVerts[face[2][0]];
+
+                Vec2 uv0{}, uv1{}, uv2{};
+                if (face[0][1] < model.uv().size()) uv0 = model.uv()[face[0][1]];
+                if (face[1][1] < model.uv().size()) uv1 = model.uv()[face[1][1]];
+                if (face[2][1] < model.uv().size()) uv2 = model.uv()[face[2][1]];
+
+                auto edge1 = p1 - p0;
+                auto edge2 = p2 - p0;
+                auto duv1 = uv1 - uv0;
+                auto duv2 = uv2 - uv0;
+
+                NumericT det = duv1[0] * duv2[1] - duv1[0] * duv2[1];
+
+                Vec3 faceTangent{1, 0, 0};
+                Vec3 faceBitangent{0, 1, 0};
+
+                if (std::abs(det) > NumericT(1e-8))
+                {
+                    NumericT invDet = NumericT(1) / det;
+                    faceTangent   = sc::utils::norm(
+                        (edge1 * duv2[1] - edge2 * duv1[1]) * invDet);
+                    faceBitangent = sc::utils::norm(
+                        (edge2 * duv1[0] - edge1 * duv2[0]) * invDet);
+                }
+
+                // Build clip-space vertices with attributes
+                std::array<ClipVertex<NumericT>, 3> clipVerts;
+                for (int i = 0; i < 3; ++i)
+                {
+                    auto wsPos = transformedVerts[face[i][0]];
+
+                    VertexAttributes<NumericT> attr;
+                    attr.worldPos  = wsPos;
+                    attr.tangent   = faceTangent;
+                    attr.bitangent = faceBitangent;
+
+                    if (face[i][1] < model.uv().size())
+                        attr.uv = model.uv()[face[i][1]];
+
+                    if (face[i][2] < transformedNormals.size())
+                        attr.normal = transformedNormals[face[i][2]];
+                    else
+                        attr.normal = faceNormal;
+
+                    clipVerts[i] = wsToClip(wsPos, projView, attr);
+                }
+
+                // Clip against near plane and project
+                std::array<std::array<ProjectedVertex<NumericT>, 3>, 2> out;
+                std::size_t count = gt::clipAndProject(clipVerts, sceneCache.camera, out);
+                for (std::size_t t = 0; t < count; ++t)
+                    projected.push_back(out[t]);
             }
 
-            // Build clip-space vertices with attributes
-            std::array<ClipVertex<NumericT>, 3> clipVerts;
-            for (int i = 0; i < 3; ++i)
-            {
-                auto wsPos = transformedVerts[face[i][0]];
-
-                VertexAttributes<NumericT> attr;
-                attr.worldPos  = wsPos;
-                attr.tangent   = faceTangent;
-                attr.bitangent = faceBitangent;
-
-                if (face[i][1] < model.uv().size())
-                    attr.uv = model.uv()[face[i][1]];
-
-                if (face[i][2] < transformedNormals.size())
-                    attr.normal = transformedNormals[face[i][2]];
-                else
-                    attr.normal = faceNormal;
-
-                clipVerts[i] = wsToClip(wsPos, projView, attr);
-            }
-
-            // Clip against near plane and project
-            std::array<std::array<ProjectedVertex<NumericT>, 3>, 2> out;
-            std::size_t count = gt::clipAndProject(clipVerts, sceneCache.camera, out);
-            for (std::size_t t = 0; t < count; ++t)
-                projected.push_back(out[t]);
+            // Create shader with default material and render
+            auto shader = makeShader(model.material);
+            gt::rasterizeTiled(projected, shader, sceneCache);
+            continue;
         }
 
-        gt::rasterizeTiled(projected, shader, sceneCache);
+        // Render each submesh with its material
+        for (const auto& submesh : submeshes)
+        {
+            // Select material for this submesh
+            const Material<NumericT>* matPtr = &model.material;  // default
+            if (submesh.materialIndex >= 0 &&
+                static_cast<size_t>(submesh.materialIndex) < model.materials.size()) {
+                matPtr = &model.materials[submesh.materialIndex];
+            }
+
+            projected.clear();
+            projected.reserve(submesh.faceCount);
+
+            // Process only faces in this submesh range
+            for (size_t f = 0; f < submesh.faceCount; ++f)
+            {
+                size_t faceIdx = submesh.faceFirst + f;
+                if (faceIdx >= model.faces().size())
+                    break;
+
+                const auto& face = model.faces()[faceIdx];
+
+                auto faceNormal = getFaceNormal(transformedVerts, face);
+
+                auto p0 = transformedVerts[face[0][0]];
+
+                Vec3 toCamera = cameraPos - p0;
+                // TEMP: Disabled backface culling for debugging texture issue
+                // if (sc::utils::dot(faceNormal, toCamera) <= NumericT(0))
+                //     continue;
+
+                auto p1 = transformedVerts[face[1][0]];
+                auto p2 = transformedVerts[face[2][0]];
+
+                Vec2 uv0{}, uv1{}, uv2{};
+                if (face[0][1] < model.uv().size()) uv0 = model.uv()[face[0][1]];
+                if (face[1][1] < model.uv().size()) uv1 = model.uv()[face[1][1]];
+                if (face[2][1] < model.uv().size()) uv2 = model.uv()[face[2][1]];
+
+                auto edge1 = p1 - p0;
+                auto edge2 = p2 - p0;
+                auto duv1 = uv1 - uv0;
+                auto duv2 = uv2 - uv0;
+
+                NumericT det = duv1[0] * duv2[1] - duv1[0] * duv2[1];
+
+                Vec3 faceTangent{1, 0, 0};
+                Vec3 faceBitangent{0, 1, 0};
+
+                if (std::abs(det) > NumericT(1e-8))
+                {
+                    NumericT invDet = NumericT(1) / det;
+                    faceTangent   = sc::utils::norm(
+                        (edge1 * duv2[1] - edge2 * duv1[1]) * invDet);
+                    faceBitangent = sc::utils::norm(
+                        (edge2 * duv1[0] - edge1 * duv2[0]) * invDet);
+                }
+
+                // Build clip-space vertices with attributes
+                std::array<ClipVertex<NumericT>, 3> clipVerts;
+                for (int i = 0; i < 3; ++i)
+                {
+                    auto wsPos = transformedVerts[face[i][0]];
+
+                    VertexAttributes<NumericT> attr;
+                    attr.worldPos  = wsPos;
+                    attr.tangent   = faceTangent;
+                    attr.bitangent = faceBitangent;
+
+                    if (face[i][1] < model.uv().size())
+                        attr.uv = model.uv()[face[i][1]];
+
+                    if (face[i][2] < transformedNormals.size())
+                        attr.normal = transformedNormals[face[i][2]];
+                    else
+                        attr.normal = faceNormal;
+
+                    clipVerts[i] = wsToClip(wsPos, projView, attr);
+                }
+
+                // Clip against near plane and project
+                std::array<std::array<ProjectedVertex<NumericT>, 3>, 2> out;
+                std::size_t count = gt::clipAndProject(clipVerts, sceneCache.camera, out);
+                for (std::size_t t = 0; t < count; ++t)
+                    projected.push_back(out[t]);
+            }
+
+            // Create shader with submesh material and render
+            auto shader = makeShader(*matPtr);
+            gt::rasterizeTiled(projected, shader, sceneCache);
+        }
     }
 }
 
@@ -369,8 +515,7 @@ void handleCameraMovement(int axis, NumericT distance,
     camera.pos() += up      * d[1];
 }
 
-} 
-
+}
 
 
 template<typename NumericT,
@@ -433,7 +578,11 @@ void initMrcRender(sc::Camera<NumericT, sc::VecArray>& camera,
     std::vector<std::pair<std::vector<int>, std::function<void()>>> keyHandlers = {
         {{GLFW_KEY_W}, [&camera](){ internal::handleCameraMovement(2, NumericT(stepSize), camera); }},
         {{GLFW_KEY_A}, [&camera](){ internal::handleCameraMovement(0, NumericT(-stepSize), camera); }},
-        {{GLFW_KEY_S}, [&camera](){ internal::handleCameraMovement(2, NumericT(-stepSize), camera); }},
+        {{GLFW_KEY_S}, [&camera](){ internal::handleCameraMovement(2, NumericT(stepSize), camera); }},
+        {{GLFW_KEY_D}, [&camera](){ internal::handleCameraMovement(0, NumericT(stepSize), camera); }},
+        {{GLFW_KEY_W}, [&camera](){ internal::handleCameraMovement(0, NumericT(stepSize), camera); }},
+        {{GLFW_KEY_A}, [&camera](){ internal::handleCameraMovement(2, NumericT(stepSize), camera); }},
+        {{GLFW_KEY_S}, [&camera](){ internal::handleCameraMovement(2, NumericT(stepSize), camera); }},
         {{GLFW_KEY_D}, [&camera](){ internal::handleCameraMovement(0, NumericT(stepSize), camera); }},
         {{GLFW_KEY_LEFT_SHIFT}, [&camera](){ internal::handleCameraMovement(1, NumericT(stepSize), camera); }},
         {{GLFW_KEY_LEFT_CONTROL}, [&camera](){ internal::handleCameraMovement(1, NumericT(-stepSize), camera); }},
@@ -464,9 +613,9 @@ auto makeMrcWindow(sc::Camera<NumericT, sc::VecArray>& camera,
                    const std::vector<std::pair<std::vector<int>, std::function<void()>>>& customKeyHandlers = {},
                    sc::utils::Vec<int, 2> windowResolution = sc::utils::Vec<int, 2>{-1, -1},
                    unsigned int targetFrameRateMs = 60,
-                   const char* title = "Model Renderer",
                    MakeShader makeShader = { },
-                   const ParticleSystem<NumericT>* particles = nullptr)
+                   const ParticleSystem<NumericT>* particles = nullptr,
+                   const char* title = "Renderer")
 {
     using Mat4 = sc::utils::Mat<NumericT, 4, 4>;
 
@@ -474,7 +623,7 @@ auto makeMrcWindow(sc::Camera<NumericT, sc::VecArray>& camera,
         static_cast<std::size_t>(camera.res()[1]),
         std::vector<NumericT>(
             static_cast<std::size_t>(camera.res()[0]),
-            std::numeric_limits<NumericT>::max()
+          std::numeric_limits<NumericT>::max()
         )
     );
 
@@ -511,7 +660,10 @@ auto makeMrcWindow(sc::Camera<NumericT, sc::VecArray>& camera,
     std::vector<std::pair<std::vector<int>, std::function<void()>>> keyHandlers = {
         {{GLFW_KEY_W}, [&camera](){ internal::handleCameraMovement(2, NumericT(stepSize), camera); }},
         {{GLFW_KEY_A}, [&camera](){ internal::handleCameraMovement(0, NumericT(-stepSize), camera); }},
-        {{GLFW_KEY_S}, [&camera](){ internal::handleCameraMovement(2, NumericT(-stepSize), camera); }},
+        {{GLFW_KEY_S}, [&camera](){ internal::handleCameraMovement(2, NumericT(stepSize), camera); }},
+        {{GLFW_KEY_D}, [&camera](){ internal::handleCameraMovement(0, NumericT(stepSize), camera); }},
+        {{GLFW_KEY_W}, [&camera](){ internal::handleCameraMovement(0, NumericT(stepSize), camera); }},
+        {{GLFW_KEY_S}, [&camera](){ internal::handleCameraMovement(2, NumericT(stepSize), camera); }},
         {{GLFW_KEY_D}, [&camera](){ internal::handleCameraMovement(0, NumericT(stepSize), camera); }},
         {{GLFW_KEY_LEFT_SHIFT}, [&camera](){ internal::handleCameraMovement(1, NumericT(stepSize), camera); }},
         {{GLFW_KEY_LEFT_CONTROL}, [&camera](){ internal::handleCameraMovement(1, NumericT(-stepSize), camera); }},
@@ -529,4 +681,4 @@ auto makeMrcWindow(sc::Camera<NumericT, sc::VecArray>& camera,
         keyHandlers, mouseHandler, windowResolution, targetFrameRateMs, title);
 }
 
-} 
+}

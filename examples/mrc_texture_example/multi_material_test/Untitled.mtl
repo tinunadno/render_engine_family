@@ -1,22 +1,23 @@
-# Blender 5.0.1 MTL File: 'None'
-# www.blender.org
+# Multi-Material Test - With Textures
 
 newmtl Material
 Ns 250.000000
-Ka 1.000000 1.000000 1.000000
+Ka 1.000000 0.000000 0.000000
 Ks 0.500000 0.500000 0.500000
 Ke 0.000000 0.000000 0.000000
 Ni 1.500000
 d 1.000000
 illum 2
-map_Kd /Users/yura/Downloads/Telegram Desktop/Untitled.png
+Kd 0.8 0.2 0.2
+map_Kd 1.png
 
 newmtl Material.001
 Ns 250.000000
-Ka 1.000000 1.000000 1.000000
+Ka 0.000000 0.000000 1.000000
 Ks 0.500000 0.500000 0.500000
 Ke 0.000000 0.000000 0.000000
 Ni 1.500000
 d 1.000000
 illum 2
-map_Kd /Users/yura/stuff/clion/curved_space_render_engine/examples/mrc_texture_example/objects/Rock058_4K-JPG_NormalDX.jpg
+Kd 0.2 0.2 0.8
+map_Kd 2.png

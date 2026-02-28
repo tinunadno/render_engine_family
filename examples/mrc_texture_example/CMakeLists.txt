@@ -18,3 +18,17 @@ target_link_libraries(texture_example
         glfw
         OpenGL::GL
 )
+
+add_executable(test_multimat
+        test_multimat.cpp
+)
+
+target_compile_definitions(test_multimat PRIVATE PROJECT_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+
+target_link_libraries(test_multimat
+        PRIVATE
+        engine_core
+        model_render_core
+        glfw
+        OpenGL::GL
+)

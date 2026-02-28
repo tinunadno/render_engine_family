@@ -1,0 +1,11 @@
+# Square MTL - PNG textures ONLY, no fallback colors
+
+# Material.001 uses 1.png
+newmtl Material.001
+Kd 1.0 1.0 1.0  # White fallback, should NOT be used if texture loads
+map_Kd 1.png
+
+# Material uses 2.png
+newmtl Material
+Kd 1.0 1.0 1.0  # White fallback, should NOT be used if texture loads
+map_Kd 2.png

@@ -6,10 +6,13 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <iostream>
+#include <iomanip>
 #include <string>
 #include <unordered_map>
 #include <cstring>
 #include <cstdlib>
+#include <vector>
+#include <cstdint>
 
 // stb_image: define implementation here.
 // NOTE: if io.h is included from multiple translation units in the same
@@ -22,7 +25,6 @@
 
 namespace mrc::io
 {
-
 
 
 namespace detail
@@ -199,10 +201,54 @@ std::shared_ptr<Texture<NumericT>> loadTexture(const std::string& path)
     int w, h, channels;
     unsigned char* data = stbi_load(path.c_str(), &w, &h, &channels, 3);
     if (!data) {
-        std::cerr << "io: failed to load texture: " << path
+        std::cerr << "FATAL ERROR: Texture file not found or cannot be opened: " << path
                   << " (" << stbi_failure_reason() << ")\n";
-        return nullptr;
+        // Explicitly fail here - user REQUIREMENT: explicit assert/error, not silent fallback
+        throw std::runtime_error("Failed to load texture: " + path);
     }
+
+    // REQUIREMENT: Verify dimensions > 0
+    if (w <= 0 || h <= 0) {
+        std::cerr << "FATAL ERROR: Invalid texture dimensions: w=" << w << " h=" << h
+                  << " path=" << path << "\n";
+        throw std::runtime_error("Invalid texture dimensions: " + path);
+    }
+
+    // REQUIREMENT: Detailed loading logs - first 16 bytes in hex
+    size_t pixelCount = static_cast<size_t>(w) * static_cast<size_t>(h);
+    size_t bytesToCheck = std::min(static_cast<size_t>(16), pixelCount * 3);
+    std::cerr << "TEXTURE LOAD SUCCESS: path=" << path
+              << " w=" << w << " h=" << h << " channels=" << channels
+              << " pixelCount=" << pixelCount << "\n";
+
+    // Print first 16 bytes in hex
+    std::cerr << "DATA (first 16 bytes): ";
+    for (size_t i = 0; i < bytesToCheck; ++i) {
+        std::cerr << std::hex << std::setw(2) << std::setfill('0')
+                  << static_cast<int>(data[i]);
+        if ((i + 1) % 8 == 0) std::cerr << " ";
+    }
+    std::cerr << "\n";
+
+    // REQUIREMENT: Control sum and min/max per channel
+    uint64_t sumR = 0, sumG = 0, sumB = 0;
+    uint8_t minR = 255, minG = 255, minB = 255;
+    uint8_t maxR = 0, maxG = 0, maxB = 0;
+    for (size_t i = 0; i < pixelCount * 3; i += 3) {
+        sumR += data[i]; sumG += data[i + 1]; sumB += data[i + 2];
+        minR = std::min(minR, data[i]);
+        minG = std::min(minG, data[i + 1]);
+        minB = std::min(minB, data[i + 2]);
+        maxR = std::max(maxR, data[i]);
+        maxG = std::max(maxG, data[i + 1]);
+        maxB = std::max(maxB, data[i + 2]);
+    }
+    std::cerr << "CHANNEL R: sum=" << sumR << " min=" << static_cast<int>(minR)
+              << " max=" << static_cast<int>(maxR) << "\n";
+    std::cerr << "CHANNEL G: sum=" << sumG << " min=" << static_cast<int>(minG)
+              << " max=" << static_cast<int>(maxG) << "\n";
+    std::cerr << "CHANNEL B: sum=" << sumB << " min=" << static_cast<int>(minB)
+              << " max=" << static_cast<int>(maxB) << "\n";
 
     auto tex = Texture<NumericT>::fromRawBytes(
         data, static_cast<std::size_t>(w), static_cast<std::size_t>(h));
@@ -219,9 +265,21 @@ Material<NumericT> buildMaterial(const MtlEntry<NumericT>& entry)
     mat.ambient   = (entry.ka[0] + entry.ka[1] + entry.ka[2]) / NumericT(3);
     mat.specular  = (entry.ks[0] + entry.ks[1] + entry.ks[2]) / NumericT(3);
     mat.shininess = (entry.ns > 0) ? entry.ns : NumericT(32);
+
+    // REQUIREMENT: Log which texture is being loaded
+    std::cerr << "MATERIAL BUILD: Loading diffuse map_Kd=" << entry.mapKd << "\n";
     mat.diffuseMap = loadTexture<NumericT>(entry.mapKd);
-    mat.roughnessMap = loadTexture<NumericT>(entry.mapNs);
-    mat.normalMap = loadTexture<NumericT>(entry.mapBump);
+
+    // Load optional maps with logging
+    if (!entry.mapNs.empty()) {
+        std::cerr << "MATERIAL BUILD: Loading roughness map_Ns=" << entry.mapNs << "\n";
+        mat.roughnessMap = loadTexture<NumericT>(entry.mapNs);
+    }
+    if (!entry.mapBump.empty()) {
+        std::cerr << "MATERIAL BUILD: Loading normal map_Bump=" << entry.mapBump << "\n";
+        mat.normalMap = loadTexture<NumericT>(entry.mapBump);
+    }
+
     return mat;
 }
 
@@ -260,7 +318,7 @@ Model<NumericT> readFromObjFile(
     const sc::utils::Vec<NumericT, 3>& pos = sc::utils::Vec<NumericT, 3>{0, 0, 0},
     const sc::utils::Vec<NumericT, 3>& rot = sc::utils::Vec<NumericT, 3>{0, 0, 0})
 {
-    using Face = typename ModelGeometry<NumericT>::Face;
+    using Face = typename ModelGeometryWithSubmeshes<NumericT>::Face;
 
     std::string baseDir = detail::extractDir(path);
 
@@ -274,7 +332,19 @@ Model<NumericT> readFromObjFile(
     std::vector<Face> faces;
 
     std::string mtlLibPath;
-    std::string activeMaterial;
+
+    // Material tracking for submeshes
+    std::string activeMatName;
+    std::string pendingMatName;  // For usemtl encountered before any faces
+
+    // Track face ranges for each material
+    struct MaterialRange {
+        std::string matName;
+        size_t faceFirst;
+        size_t faceCount;
+    };
+    std::vector<MaterialRange> materialRanges;
+    size_t currentRangeStart = 0;
 
     while (p < end)
     {
@@ -294,7 +364,15 @@ Model<NumericT> readFromObjFile(
         else if (std::strncmp(p, "usemtl", 6) == 0 && (p[6] == ' ' || p[6] == '\t'))
         {
             p += 6;
-            activeMaterial = detail::readRestOfLine(p, end);
+            pendingMatName = detail::readRestOfLine(p, end);
+
+            // Close current range if there are faces in it
+            if (faces.size() > currentRangeStart && !activeMatName.empty()) {
+                materialRanges.push_back({activeMatName, currentRangeStart, faces.size() - currentRangeStart});
+                currentRangeStart = faces.size();
+            }
+            // Set the new active material
+            activeMatName = pendingMatName;
         }
         else if (p[0] == 'v' && p[1] == 'n' && (p[2] == ' ' || p[2] == '\t'))
         {
@@ -352,7 +430,14 @@ Model<NumericT> readFromObjFile(
 
     munmap(const_cast<char*>(ptr), size);
 
-    ModelGeometry<NumericT> geometry;
+    // Close final range
+    if (faces.size() > currentRangeStart) {
+        materialRanges.push_back({activeMatName, currentRangeStart, faces.size() - currentRangeStart});
+    } else if (!activeMatName.empty() && materialRanges.empty()) {
+        // usemtl with no faces - ignore it
+    }
+
+    ModelGeometryWithSubmeshes<NumericT> geometry;
     geometry.verticies() = std::move(vertices);
     geometry.uv()        = std::move(uvs);
     geometry.normals()   = std::move(normals);
@@ -360,26 +445,78 @@ Model<NumericT> readFromObjFile(
     geometry.pos()       = pos;
     geometry.rot()       = rot;
 
-    Material<NumericT> material;
+    Model<NumericT> model;
+    model.geometry = std::move(geometry);
+
+    // Default material for faces before first usemtl or unknown materials
+    Material<NumericT> defaultMaterial;
+    defaultMaterial.baseColor = sc::utils::Vec<NumericT, 3>{0.7f, 0.7f, 0.7f};
+    defaultMaterial.ambient = 0.1f;
+    defaultMaterial.specular = 0.5f;
+    defaultMaterial.shininess = 32.0f;
+    model.material = defaultMaterial;
+
+    // Load MTL file and create submeshes
+    std::unordered_map<std::string, detail::MtlEntry<NumericT>> mtlMap;
     if (!mtlLibPath.empty())
     {
         std::string fullMtlPath = detail::resolvePath(baseDir, mtlLibPath);
         try {
-            auto mtlMap = detail::parseMtlFile<NumericT>(fullMtlPath.c_str(), baseDir);
-            const detail::MtlEntry<NumericT>* entry = nullptr;
-            if (!activeMaterial.empty() && mtlMap.count(activeMaterial))
-                entry = &mtlMap.at(activeMaterial);
-            else if (!mtlMap.empty())
-                entry = &mtlMap.begin()->second;
-            if (entry)
-                material = detail::buildMaterial(*entry);
+            mtlMap = detail::parseMtlFile<NumericT>(fullMtlPath.c_str(), baseDir);
         }
         catch (const std::exception& e) {
             std::cerr << "io: warning: could not load MTL: " << e.what() << "\n";
         }
     }
 
-    return Model<NumericT>{ std::move(geometry), std::move(material) };
+    // Build materials vector and name->index map
+    model.matByName.clear();
+    model.materials.clear();
+
+    for (const auto& [name, entry] : mtlMap) {
+        model.matByName[name] = model.materials.size();
+        model.materials.push_back(detail::buildMaterial(entry));
+    }
+
+    // Set backward-compatible material to first loaded material, or default
+    if (!model.materials.empty()) {
+        model.material = model.materials[0];
+    }
+
+    // Build submeshes from material ranges
+    for (const auto& range : materialRanges) {
+        if (range.faceCount == 0) {
+            continue;  // Skip empty ranges (usemtl without faces)
+        }
+
+        Submesh<NumericT> submesh;
+        submesh.faceFirst = range.faceFirst;
+        submesh.faceCount = range.faceCount;
+        submesh.materialName = range.matName;
+
+        // Look up material index
+        auto it = model.matByName.find(range.matName);
+        if (it != model.matByName.end()) {
+            submesh.materialIndex = static_cast<int>(it->second);
+        } else {
+            submesh.materialIndex = -1;  // Use default material
+        }
+
+        model.submeshes().push_back(submesh);
+    }
+
+#ifdef DEBUG_SUBMESH_LOADING
+    std::cout << "DEBUG: Loaded model with " << model.submeshes().size() << " submeshes\n";
+    for (size_t i = 0; i < model.submeshes().size(); ++i) {
+        const auto& sm = model.submeshes()[i];
+        std::cout << "  Submesh " << i << ": faceFirst=" << sm.faceFirst
+                  << ", faceCount=" << sm.faceCount
+                  << ", materialName=" << sm.materialName
+                  << ", materialIndex=" << sm.materialIndex << "\n";
+    }
+#endif
+
+    return model;
 }
 
 } // namespace mrc::io

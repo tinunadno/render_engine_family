@@ -1,0 +1,14 @@
+/home/okak/Рабочий стол/yura/render_engine_family/CMakeFiles/edit_cache.dir
+/home/okak/Рабочий стол/yura/render_engine_family/CMakeFiles/rebuild_cache.dir
+/home/okak/Рабочий стол/yura/render_engine_family/engine_core/CMakeFiles/edit_cache.dir
+/home/okak/Рабочий стол/yura/render_engine_family/engine_core/CMakeFiles/rebuild_cache.dir
+/home/okak/Рабочий стол/yura/render_engine_family/model_render_core/CMakeFiles/edit_cache.dir
+/home/okak/Рабочий стол/yura/render_engine_family/model_render_core/CMakeFiles/rebuild_cache.dir
+/home/okak/Рабочий стол/yura/render_engine_family/examples/mrc_texture_example/CMakeFiles/texture_example.dir
+/home/okak/Рабочий стол/yura/render_engine_family/examples/mrc_texture_example/CMakeFiles/test_multimat.dir
+/home/okak/Рабочий стол/yura/render_engine_family/examples/mrc_texture_example/CMakeFiles/edit_cache.dir
+/home/okak/Рабочий стол/yura/render_engine_family/examples/mrc_texture_example/CMakeFiles/rebuild_cache.dir
+/home/okak/Рабочий стол/yura/render_engine_family/examples/multi_material_example/CMakeFiles/multi_material_example.dir
+/home/okak/Рабочий стол/yura/render_engine_family/examples/multi_material_example/CMakeFiles/heart_example.dir
+/home/okak/Рабочий стол/yura/render_engine_family/examples/multi_material_example/CMakeFiles/edit_cache.dir
+/home/okak/Рабочий стол/yura/render_engine_family/examples/multi_material_example/CMakeFiles/rebuild_cache.dir
