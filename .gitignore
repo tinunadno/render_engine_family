@@ -1,17 +1,39 @@
+# Build directories
 cmake-build-debug
 */cmake-build-debug
-.idea
-build
+build/
+build_debug/
+build_test
+
+# CMake build artifacts (recursive)
+**/CMakeCache.txt
+**/CMakeFiles/
+**/cmake_install.cmake
+**/Makefile
+**/*.dir/
+
+# Generated files
+compile_commands.json
+
+# Object files and libraries
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.dylib
+*.exe
+
+# IDE/editor files
+.idea/
+.vscode/
+*.user
+*.suo
+*.log
+*.tmp
+*.swp
+*~
+
+# Project-specific
 examples/sfm_model_reconstruction/db
-build_debug
-CMakeCache.txt
-CMakeFiles
-cmake_install.cmake
-*/CMakeFiles
-*/CMakeCache.txt
-*/cmake_install.cmake
-*/Makefile
-*/*/CMakeFiles
-*/*/CMakeCache.txt
-*/*/cmake_install.cmake
-*/*/Makefile

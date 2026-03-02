@@ -63,19 +63,10 @@ int main() {
     std::cerr << "  Shift/Ctrl - Move up/down" << std::endl;
     std::cerr << "  Mouse drag - Rotate camera" << std::endl;
 
-    // Create shader factory - takes a material and returns a BlinnFongShaderFactory
-    auto makeShader = [](const mrc::Material<float>& material) -> auto {
-        // Create shader factory with material reference and name for debugging
-        std::string matName = "material";
-        if (material.diffuseMap) {
-            matName = "textured";
-        } else {
-            matName = "solid";
-        }
-        return mrc::internal::BlinnFongShaderFactory<float>(material, matName);
-    };
-
-    ::mrc::initMrcRender(camera, models, ls, {}, {}, {}, {}, 60, makeShader);
+    // Use default BlinnFongShaderFactory which supports both:
+    // - Model path for backward compatibility (old examples)
+    // - Material path for multi-material (submeshes)
+    ::mrc::initMrcRender(camera, models, ls, {}, {}, {}, {}, 60, {});
 
     return 0;
 }

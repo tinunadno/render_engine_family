@@ -10,4 +10,4 @@ d 1.000000
 illum 2
 map_Kd Rock058_4K-JPG_Color.jpg
 map_Ns Rock058_4K-JPG_Roughness.jpg
-map_Bump Rock058_4K-JPG_NormalDX.jpg
+# map_Bump Rock058_4K-JPG_NormalDX.jpg  # File not found, disabled

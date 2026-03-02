@@ -47,14 +47,30 @@ inline void logTexOnlyDebug(const sc::utils::Vec<float, 3>& sampledColor, const 
 template<typename NumericT>
 struct BlinnFongShaderFactory
 {
-    const Material<NumericT>& material;
-    std::string materialName;
+    // Legacy path: accepts Model, uses model.material (backward compatibility)
+    auto operator()(const Model<NumericT>& model) const
+    {
+        return [mat = &model.material](const FragmentInput<NumericT>& frag)
+            -> sc::utils::Vec<float, 3>
+        {
+            return createShader(*mat, frag);
+        };
+    }
 
-    BlinnFongShaderFactory(const Material<NumericT>& mat, const std::string& name = "unknown")
-        : material(mat), materialName(name) {}
+    // Multi-material path: accepts Material directly (for submeshes)
+    auto operator()(const Material<NumericT>& material) const
+    {
+        return [mat = &material](const FragmentInput<NumericT>& frag)
+            -> sc::utils::Vec<float, 3>
+        {
+            return createShader(*mat, frag);
+        };
+    }
 
-    auto operator()(const FragmentInput<NumericT>& frag) const
-        -> sc::utils::Vec<float, 3>
+private:
+    static sc::utils::Vec<float, 3> createShader(
+        const Material<NumericT>& mat,
+        const FragmentInput<NumericT>& frag)
     {
         using Vec3f = sc::utils::Vec<float, 3>;
 
@@ -65,25 +81,25 @@ struct BlinnFongShaderFactory
         */
         Vec3f albedo;
 
-        if (material.diffuseMap) {
+        if (mat.diffuseMap) {
             // Pure texture sampling - NO baseColor multiplication
-            albedo = material.diffuseMap->sample(frag.uv);
+            albedo = mat.diffuseMap->sample(frag.uv);
 
 #ifdef DEBUG_TEXTURE_ONLY
-            logTexOnlyDebug(albedo, materialName);
+            logTexOnlyDebug(albedo, "material");
             return albedo;  // Skip all lighting/shading, return pure texture
 #endif
         } else {
             // Fallback to baseColor only when no texture
             albedo = sc::utils::Vec<float, 3>(
-                static_cast<float>(material.baseColor[0]),
-                static_cast<float>(material.baseColor[1]),
-                static_cast<float>(material.baseColor[2])
+                static_cast<float>(mat.baseColor[0]),
+                static_cast<float>(mat.baseColor[1]),
+                static_cast<float>(mat.baseColor[2])
             );
         }
 
 #ifdef DEBUG_UV_INTERPOLATION
-        logUVDebug(frag, materialName);
+        logUVDebug(frag, "material");
 #endif
 
         /* ===============================
@@ -97,10 +113,10 @@ struct BlinnFongShaderFactory
 
         Vec3f N = geoN;
 
-        if (material.normalMap)
+        if (mat.normalMap)
         {
             // Normal map хранит нормали в tangent space [0,1] → remap [-1,1]
-            Vec3f tsN = material.normalMap->sample(frag.uv);
+            Vec3f tsN = mat.normalMap->sample(frag.uv);
             tsN = tsN * 2.f - Vec3f{1.f, 1.f, 1.f};
 
             // Построение TBN базиса
@@ -132,7 +148,7 @@ struct BlinnFongShaderFactory
             /* ===============================
                4. Ambient
                =============================== */
-            float amb = static_cast<float>(material.ambient);
+            float amb = static_cast<float>(mat.ambient);
             Vec3f result = albedo * amb;
 
             /* ===============================
@@ -141,12 +157,12 @@ struct BlinnFongShaderFactory
             float shin;
             float ks;
 
-            if (material.roughnessMap)
+            if (mat.roughnessMap)
             {
                 // map_Ns (Blender) хранит roughness:
                 //   0 (чёрный) = гладкий,  1 (белый) = шершавый
                 float roughness = std::clamp(
-                    material.roughnessMap->sample(frag.uv)[0], 0.f, 1.f);
+                    mat.roughnessMap->sample(frag.uv)[0], 0.f, 1.f);
                 float smoothness = 1.f - roughness;
                 float s2 = smoothness * smoothness;
                 float s4 = s2 * s2;
@@ -157,14 +173,14 @@ struct BlinnFongShaderFactory
 
                 // Roughness → specular intensity:
                 //   smooth → full specular, rough → none
-                float specBase = static_cast<float>(material.specular);
+                float specBase = static_cast<float>(mat.specular);
                 if (specBase <= 0.f) specBase = 0.5f;
                 ks = s2 * specBase;
             }
             else
             {
-                shin = static_cast<float>(material.shininess);
-                ks   = static_cast<float>(material.specular);
+                shin = static_cast<float>(mat.shininess);
+                ks   = static_cast<float>(mat.specular);
             }
 
             /* ===============================
@@ -311,7 +327,7 @@ void renderSingleFrame(const std::vector<Model<NumericT>>& models,
             }
 
             // Create shader with default material and render
-            auto shader = makeShader(model.material);
+            auto shader = makeShader(model);
             gt::rasterizeTiled(projected, shader, sceneCache);
             continue;
         }
@@ -578,11 +594,7 @@ void initMrcRender(sc::Camera<NumericT, sc::VecArray>& camera,
     std::vector<std::pair<std::vector<int>, std::function<void()>>> keyHandlers = {
         {{GLFW_KEY_W}, [&camera](){ internal::handleCameraMovement(2, NumericT(stepSize), camera); }},
         {{GLFW_KEY_A}, [&camera](){ internal::handleCameraMovement(0, NumericT(-stepSize), camera); }},
-        {{GLFW_KEY_S}, [&camera](){ internal::handleCameraMovement(2, NumericT(stepSize), camera); }},
-        {{GLFW_KEY_D}, [&camera](){ internal::handleCameraMovement(0, NumericT(stepSize), camera); }},
-        {{GLFW_KEY_W}, [&camera](){ internal::handleCameraMovement(0, NumericT(stepSize), camera); }},
-        {{GLFW_KEY_A}, [&camera](){ internal::handleCameraMovement(2, NumericT(stepSize), camera); }},
-        {{GLFW_KEY_S}, [&camera](){ internal::handleCameraMovement(2, NumericT(stepSize), camera); }},
+        {{GLFW_KEY_S}, [&camera](){ internal::handleCameraMovement(2, NumericT(-stepSize), camera); }},
         {{GLFW_KEY_D}, [&camera](){ internal::handleCameraMovement(0, NumericT(stepSize), camera); }},
         {{GLFW_KEY_LEFT_SHIFT}, [&camera](){ internal::handleCameraMovement(1, NumericT(stepSize), camera); }},
         {{GLFW_KEY_LEFT_CONTROL}, [&camera](){ internal::handleCameraMovement(1, NumericT(-stepSize), camera); }},
@@ -660,10 +672,7 @@ auto makeMrcWindow(sc::Camera<NumericT, sc::VecArray>& camera,
     std::vector<std::pair<std::vector<int>, std::function<void()>>> keyHandlers = {
         {{GLFW_KEY_W}, [&camera](){ internal::handleCameraMovement(2, NumericT(stepSize), camera); }},
         {{GLFW_KEY_A}, [&camera](){ internal::handleCameraMovement(0, NumericT(-stepSize), camera); }},
-        {{GLFW_KEY_S}, [&camera](){ internal::handleCameraMovement(2, NumericT(stepSize), camera); }},
-        {{GLFW_KEY_D}, [&camera](){ internal::handleCameraMovement(0, NumericT(stepSize), camera); }},
-        {{GLFW_KEY_W}, [&camera](){ internal::handleCameraMovement(0, NumericT(stepSize), camera); }},
-        {{GLFW_KEY_S}, [&camera](){ internal::handleCameraMovement(2, NumericT(stepSize), camera); }},
+        {{GLFW_KEY_S}, [&camera](){ internal::handleCameraMovement(2, NumericT(-stepSize), camera); }},
         {{GLFW_KEY_D}, [&camera](){ internal::handleCameraMovement(0, NumericT(stepSize), camera); }},
         {{GLFW_KEY_LEFT_SHIFT}, [&camera](){ internal::handleCameraMovement(1, NumericT(stepSize), camera); }},
         {{GLFW_KEY_LEFT_CONTROL}, [&camera](){ internal::handleCameraMovement(1, NumericT(-stepSize), camera); }},
