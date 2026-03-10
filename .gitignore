@@ -37,3 +37,11 @@ compile_commands.json
 
 # Project-specific
 examples/sfm_model_reconstruction/db
+
+# Example data directory (contains moved .cpp files)
+examples/data/
+
+# Generated 3D model files in examples
+examples/**/*.obj
+examples/**/*.mtl
+examples/**/*.png
