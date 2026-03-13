@@ -14,6 +14,8 @@ target_compile_definitions(texture_example PRIVATE PROJECT_DIR="${CMAKE_CURRENT_
 target_link_libraries(texture_example
         PRIVATE
         engine_core
+        stb
+        text_render_lib
         model_render_core
         glfw
         OpenGL::GL

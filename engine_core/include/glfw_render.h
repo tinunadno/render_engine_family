@@ -144,6 +144,21 @@ public:
             glfwMakeContextCurrent(_window);
     }
 
+    [[nodiscard]] utils::Vec<float, 3> getPixel(std::size_t x, std::size_t y) const {
+        assert(x < _renderWidth && y < _renderHeight);
+
+        std::size_t idx =
+            (_renderHeight - 1 - y) * _renderWidth * 3 + x * 3;
+
+        float r = _buffer[idx + 0];
+        float g = _buffer[idx + 1];
+        float b = _buffer[idx + 2];
+
+        return sc::utils::Vec<float, 3>(
+            r / 255.f, g / 255.f, b / 255.f
+        );
+    }
+
     void setPixel(std::size_t x,
                   std::size_t y,
                   const utils::Vec<float, 3>& color)

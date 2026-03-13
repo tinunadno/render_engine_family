@@ -8,8 +8,11 @@ set(CMAKE_BUILD_TYPE Release)
 
 #add_compile_definitions(ENABLE_LOG)
 
+add_subdirectory(thd_party)
 add_subdirectory(engine_core)
+add_subdirectory(text_render_lib)
 #add_subdirectory(sfm_core)
+add_subdirectory(examples/text_example)
 add_subdirectory(examples/engine_core_examples)
 add_subdirectory(ray_marching_core)
 add_subdirectory(examples/black_hole_shader)
