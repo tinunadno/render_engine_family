@@ -3,6 +3,34 @@
 #include "utils/graphics_tools.h"
 #include "text_render/tr.h"
 
+
+template<std::size_t N>
+std::string vecToStr(const sc::utils::Vec<float, N>& vec) {
+    std::string ret = "";
+    for (std::size_t i = 0; i < N - 1; ++i) {
+        ret += std::to_string(vec[i]);
+        ret += ", ";
+    }
+    ret += std::to_string(vec[N - 1]);
+    return ret;
+}
+
+std::string sceneObjectsToText(const std::vector<mrc::Model<float>>& models,
+                               const sc::Camera<float, sc::VecArray>& c,
+                               const std::vector<mrc::LightSource<float>>& ls) {
+    std::string ret;
+    ret += "camera: \n";
+    ret += "\tpos: " + vecToStr(c.pos()) + "\n\trot: " + vecToStr(c.rot()) + "\n";
+    ret += "models: \n";
+    for (std::size_t i = 0; i < models.size(); ++i) {
+        const auto& m = models[i];
+        ret += "\tobject" + std::to_string(i) + ": \n";
+        ret += "\t\tpos: " + vecToStr(m.pos()) + "\n";
+        ret += "\t\trot: " + vecToStr(m.rot()) + "\n";
+    }
+    return ret;
+}
+
 int main() {
     sc::Camera<float, sc::VecArray> camera;
     camera.pos()[2] = 2.0f;
@@ -68,7 +96,8 @@ int main() {
 
     std::size_t lastTime = 0;
 
-    auto cd = [&textRenderer, &lastTime](std::size_t f, std::size_t t, sc::GLFWRenderer& renderer, const sc::utils::Mat<float, 4, 4>&,
+    auto cd = [&textRenderer, &lastTime, &camera, &models, &ls]
+            (std::size_t f, std::size_t t, sc::GLFWRenderer& renderer, const sc::utils::Mat<float, 4, 4>&,
             const std::vector<std::vector<float>>&) {
 
         std::size_t elapsed = t - lastTime;
@@ -78,7 +107,8 @@ int main() {
             "frames: " + std::to_string(f)
             + "\ntime: " + std::to_string(t)
             + "\nfps: " + std::to_string(fps)
-            + "\nms/frame: " + std::to_string(elapsed),
+            + "\nms/frame: " + std::to_string(elapsed)
+            + "\n" + sceneObjectsToText(models, camera, ls),
             sc::utils::Vec<float, 3>{0.f, 1.f, 0.f});
 
     };

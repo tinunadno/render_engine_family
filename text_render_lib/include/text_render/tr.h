@@ -112,6 +112,14 @@ public:
 
         int paddingIdx = 0;
         for (auto s : text) {
+            if (s == '\t') {
+                x_pos += 25;
+                continue;
+            }
+            if (s == ' ') {
+                x_pos += 10;
+                continue;
+            }
             if (s == '\n') {
                 y_pos += paddings[paddingIdx] + _settings.padding[1];
                 paddingIdx++;
