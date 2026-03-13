@@ -45,3 +45,4 @@ examples/data/
 examples/**/*.obj
 examples/**/*.mtl
 examples/**/*.png
+.claude/
