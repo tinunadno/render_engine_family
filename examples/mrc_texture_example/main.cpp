@@ -1,12 +1,20 @@
 #include "main_pipeline.h"
 #include "model/io.h"
 #include "utils/graphics_tools.h"
+#include "text_render/tr.h"
 
 int main() {
     sc::Camera<float, sc::VecArray> camera;
     camera.pos()[2] = 2.0f;
     camera.setLen(0.3);
     camera.setRes(sc::utils::Vec<float, 2>{1000, 800});
+
+    const std::string fontPath = "/Library/Fonts/Arial Unicode.ttf";
+
+    auto textRenderer = tr::TextRenderer(fontPath, 20.f);
+    textRenderer.padding()[0] = 1;
+    textRenderer.padding()[1] = 1;
+
     const std::string obj1File = std::string(PROJECT_DIR) + "/objects/rock.obj";
 
     std::vector<mrc::Model<float>> models;
@@ -58,7 +66,24 @@ int main() {
         {{GLFW_KEY_LEFT_CONTROL}, [&handleInputs](){ handleInputs(1, -stepSize); }},
     };
 
-    mrc::initMrcRender(camera, models, ls, {}, {}, customKeyHandlers);
+    std::size_t lastTime = 0;
+
+    auto cd = [&textRenderer, &lastTime](std::size_t f, std::size_t t, sc::GLFWRenderer& renderer, const sc::utils::Mat<float, 4, 4>&,
+            const std::vector<std::vector<float>>&) {
+
+        std::size_t elapsed = t - lastTime;
+        lastTime = t;
+        float fps = 1000.f / static_cast<float>(elapsed);
+        textRenderer.renderText(renderer,
+            "frames: " + std::to_string(f)
+            + "\ntime: " + std::to_string(t)
+            + "\nfps: " + std::to_string(fps)
+            + "\nms/frame: " + std::to_string(elapsed),
+            sc::utils::Vec<float, 3>{0.f, 1.f, 0.f});
+
+    };
+
+    mrc::initMrcRender(camera, models, ls, {}, cd, customKeyHandlers);
 
     return 0;
 }

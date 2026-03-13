@@ -37,7 +37,7 @@ void readParticles(mrc::ParticleSystem<float>& ps, const std::string& pointsPath
     const auto* ptr = reinterpret_cast<double*>(byte_ptr + sizeof(std::size_t));
     for (std::size_t i = 0; i < pointsCount; ++i) {
         ps.positions[i][0] = static_cast<float>(*ptr++);
-        ps.positions[i][1] = static_cast<float>(*ptr++);
+        ps.positions[i][1] = -static_cast<float>(*ptr++);
         ps.positions[i][2] = static_cast<float>(*ptr++);
         ps.sizes[i] = .01f;
         ps.colors[i] = sc::utils::Vec<float, 3>{1.f, 1.f, 1.f};
