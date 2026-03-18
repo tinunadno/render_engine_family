@@ -94,6 +94,7 @@ public:
         std::vector<int> paddings;
         paddings.reserve(nlCount);
         int maxY = -std::numeric_limits<int>::max();
+        int spaceSize = 0;
         for (auto s : text) {
             SymbolCache symbol;
             if (_symbolCache.find(s) != _symbolCache.end()) {
@@ -103,21 +104,23 @@ public:
                 _symbolCache[s] = symbol;
             }
             maxY = std::max(maxY, symbol.y1 - symbol.y0);
+            spaceSize += symbol.x1 - symbol.x0;
             if (s == '\n') {
                 paddings.emplace_back(maxY);
                 maxY = -std::numeric_limits<int>::max();
             }
         }
+        spaceSize /= static_cast<int>(text.size());
         paddings.emplace_back(maxY);
 
         int paddingIdx = 0;
         for (auto s : text) {
             if (s == '\t') {
-                x_pos += 25;
+                x_pos += spaceSize * 3;
                 continue;
             }
             if (s == ' ') {
-                x_pos += 10;
+                x_pos += spaceSize;
                 continue;
             }
             if (s == '\n') {

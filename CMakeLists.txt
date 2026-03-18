@@ -4,19 +4,26 @@ project(curved_space_render_engine LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_BUILD_TYPE Release)
+#set(CMAKE_BUILD_TYPE Release)
 
 #add_compile_definitions(ENABLE_LOG)
 
+add_compile_definitions(PROJ_HOME="${CMAKE_CURRENT_SOURCE_DIR}")
+
+
 add_subdirectory(thd_party)
 add_subdirectory(engine_core)
+
+# text stuff
 add_subdirectory(text_render_lib)
-#add_subdirectory(sfm_core)
+add_subdirectory(text_io)
+
+add_subdirectory(ray_marching_core)
+add_subdirectory(model_render_core)
+
 add_subdirectory(examples/text_example)
 add_subdirectory(examples/engine_core_examples)
-add_subdirectory(ray_marching_core)
 add_subdirectory(examples/black_hole_shader)
-add_subdirectory(model_render_core)
 add_subdirectory(examples/model_render_core_example)
 add_subdirectory(examples/geometry_model_reconstruction)
 add_subdirectory(examples/mrc_texture_example)
@@ -24,3 +31,4 @@ add_subdirectory(examples/triangle_lightning_example)
 add_subdirectory(examples/sfm_model_reconstruction)
 add_subdirectory(examples/particles_exmaple)
 add_subdirectory(examples/sfm_model_reconstruction/sfm_result_visualisation)
+add_subdirectory(examples/text_io_example)

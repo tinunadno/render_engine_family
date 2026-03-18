@@ -37,9 +37,10 @@ int main() {
     camera.setLen(0.3);
     camera.setRes(sc::utils::Vec<float, 2>{1000, 800});
 
-    const std::string fontPath = "/Library/Fonts/Arial Unicode.ttf";
+    // const std::string fontPath = "/Library/Fonts/Arial Unicode.ttf";
+    const std::string fontPath = std::string(PROJ_HOME) + "/fonts/ClassVariable.ttf";
 
-    auto textRenderer = tr::TextRenderer(fontPath, 20.f);
+    auto textRenderer = tr::TextRenderer(fontPath, 50.f);
     textRenderer.padding()[0] = 1;
     textRenderer.padding()[1] = 1;
 

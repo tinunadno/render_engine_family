@@ -32,6 +32,7 @@ class GLFWRenderer
 {
     using KeyCombo = std::vector<int>;
     using KeyHandler = std::function<void()>;
+    using InputHandler = std::function<void(GLFWRenderer&, int key)>;
     using MouseMoveHandler = std::function<void(double dx, double dy)>;
 
     static inline int _glfwRefCount = 0;
@@ -271,9 +272,14 @@ public:
     const std::vector<unsigned char>& getBuffer() { return _buffer; }
     const unsigned char* getBufferPtr() { return _buffer.data(); }
 
+    void setInputHandler(const InputHandler& inputHandler) { _inputHandler = inputHandler; }
+    void startInput() { _isTextInputActive = true; }
+    void stopInput() { _isTextInputActive = false; _pressedKeys.clear(); }
+
 private:
     std::unordered_map<KeyCombo, KeyHandler, internal::KeyComboHash> _comboHandlers;
     std::unordered_map<int, KeyHandler> _keyHandlers;
+    InputHandler _inputHandler;
 
     std::size_t _renderWidth;
     std::size_t _renderHeight;
@@ -292,6 +298,7 @@ private:
     double _lastMouseY = 0.0;
     bool _firstMouse = true;
     bool _mouseCaptured = false;
+    bool _isTextInputActive = false;
 
     void handleSinglePressedKeys() {
         for (const auto key : _pressedKeys) {
@@ -303,7 +310,7 @@ private:
 
     static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
     {
-        if (action != GLFW_PRESS && action != GLFW_RELEASE)
+        if (action != GLFW_PRESS && action != GLFW_RELEASE && action != GLFW_REPEAT)
             return;
 
         auto* self =
@@ -311,6 +318,13 @@ private:
 
         if (!self || !self->_mouseCaptured)
             return;
+
+        if (self->_isTextInputActive) {
+            if (action == GLFW_RELEASE) return;
+            self->_inputHandler(*self, key);
+            return;
+        }
+        if (action == GLFW_REPEAT) return;
 
         if (action == GLFW_RELEASE) {
             self->_pressedKeys.erase(
